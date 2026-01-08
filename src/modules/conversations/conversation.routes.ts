@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createConversation, getSidebarConversations, searchSidebarConversations } from "./conversation.controller";
+import { createConversation, getSidebarConversations, searchSidebarConversations,createGroup } from "./conversation.controller";
 import { requireAuth as authMiddleware } from "../auth/auth.middleware";
 
 const router = Router();
@@ -11,6 +11,8 @@ const router = Router();
 router.get("/", authMiddleware, getSidebarConversations);
 router.get("/search", authMiddleware, searchSidebarConversations);
 router.post("/", authMiddleware, createConversation);
+
+router.post("/group", authMiddleware, createGroup);
 
 
 export default router;

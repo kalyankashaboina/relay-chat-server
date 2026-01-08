@@ -12,7 +12,6 @@ export async function createOrGetDirectConversation(
   const userObjectId = new Types.ObjectId(userId);
   const targetObjectId = new Types.ObjectId(targetUserId);
 
-  // Check if direct conversation already exists
   const existing = await Conversation.findOne({
     type: "direct",
     participants: {
@@ -21,14 +20,57 @@ export async function createOrGetDirectConversation(
     },
   });
 
-  if (existing) {
-    return existing;
-  }
+  if (existing) return existing;
 
-  // Create new direct conversation
   return Conversation.create({
     type: "direct",
     participants: [userObjectId, targetObjectId],
+  });
+}
+
+/* =====================================================
+   CREATE GROUP CONVERSATION
+===================================================== */
+
+export async function createGroupConversation({
+  creatorId,
+  name,
+  memberIds,
+}: {
+  creatorId: string;
+  name: string;
+  memberIds: string[];
+}) {
+  if (!name || !name.trim()) {
+    throw new Error("GROUP_NAME_REQUIRED");
+  }
+
+  if (!Array.isArray(memberIds)) {
+    throw new Error("INVALID_MEMBERS");
+  }
+
+  // creator must always be part of the group
+  const uniqueIds = Array.from(
+    new Set([creatorId, ...memberIds])
+  );
+
+  if (uniqueIds.length < 3) {
+    throw new Error("GROUP_MIN_MEMBERS");
+  }
+
+  const participants = uniqueIds.map(
+    (id) => new Types.ObjectId(id)
+  );
+
+  return Conversation.create({
+    type: "group",
+    name: name.trim(),
+    createdBy: new Types.ObjectId(creatorId),
+    participants,
+    unreadCounts: participants.map((id) => ({
+      userId: id,
+      count: 0,
+    })),
   });
 }
 
@@ -66,7 +108,7 @@ export async function getPaginatedConversations({
       path: "lastMessage",
       select: "_id content senderId createdAt status",
     })
-    .sort({ _id: -1 })
+    .sort({ updatedAt: -1 })
     .limit(limit + 1)
     .lean();
 
@@ -83,7 +125,7 @@ export async function getPaginatedConversations({
 }
 
 /* =====================================================
-   SEARCH CONVERSATIONS (PAGINATED)
+   SEARCH CONVERSATIONS
 ===================================================== */
 
 interface SearchConversationsArgs {
@@ -104,7 +146,7 @@ export async function searchConversations({
   const mongoQuery: any = {
     participants: userObjectId,
     $or: [
-      { name: { $regex: query, $options: "i" } }, // groups (future)
+      { name: { $regex: query, $options: "i" } }, // groups
     ],
   };
 
@@ -121,7 +163,7 @@ export async function searchConversations({
       path: "lastMessage",
       select: "_id content senderId createdAt status",
     })
-    .sort({ _id: -1 })
+    .sort({ updatedAt: -1 })
     .limit(limit + 1)
     .lean();
 
@@ -138,7 +180,7 @@ export async function searchConversations({
 }
 
 /* =====================================================
-   INTERNAL MAPPER (IMPORTANT)
+   INTERNAL MAPPER (UI CONTRACT)
 ===================================================== */
 
 function mapConversations(conversations: any[], userId: string) {
@@ -153,6 +195,7 @@ function mapConversations(conversations: any[], userId: string) {
     return {
       id: conv._id.toString(),
       isGroup: conv.type === "group",
+      groupName: conv.type === "group" ? conv.name : undefined,
 
       user: otherUser
         ? {
@@ -174,7 +217,7 @@ function mapConversations(conversations: any[], userId: string) {
           : undefined,
 
       lastMessage: conv.lastMessage ?? null,
-      unreadCount: 0, // placeholder (add later)
+      unreadCount: 0,
       updatedAt: conv.updatedAt,
     };
   });

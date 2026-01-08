@@ -2,6 +2,10 @@ import { Schema, model, Types, Document } from "mongoose";
 
 export interface IConversation extends Document {
   type: "direct" | "group";
+
+ name?: string;
+  createdBy?: Types.ObjectId;
+
   participants: Types.ObjectId[];
   lastMessage?: Types.ObjectId;
   unreadCounts?: {
@@ -27,7 +31,16 @@ const ConversationSchema = new Schema<IConversation>(
         required: true,
       },
     ],
+ name: {
+      type: String,
+      trim: true,
+    },
 
+    // 👇 ADD
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
     /**
      * Pointer to latest message
      * Used for sidebar preview

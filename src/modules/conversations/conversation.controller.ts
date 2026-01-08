@@ -3,6 +3,7 @@ import {
   getPaginatedConversations,
   createOrGetDirectConversation,
   searchConversations,
+  createGroupConversation,
 } from "./conversation.service";
 
 /* =====================================================
@@ -129,3 +130,39 @@ export async function searchSidebarConversations(
     });
   }
 }
+
+
+
+export async function createGroup(req: Request, res: Response) {
+  try {
+    const creatorId = (req as any).user?.id;
+    const { name, memberIds } = req.body;
+
+    if (!creatorId || !name || !Array.isArray(memberIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid group payload",
+      });
+    }
+
+    const conversation = await createGroupConversation({
+      creatorId,
+      name,
+      memberIds,
+    });
+
+   
+
+    return res.status(201).json({
+      success: true,
+      data: conversation,
+    });
+  } catch (err: any) {
+    console.error("Error creating group conversation:", err);
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+}
+
