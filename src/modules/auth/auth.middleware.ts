@@ -12,6 +12,7 @@ export async function requireAuth(
     const token = req.cookies?.relay_token;
 
     if (!token) {
+      console.log("No token provided");
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -23,12 +24,14 @@ export async function requireAuth(
     const user = await User.findById(payload.userId).select("-password");
 
     if (!user) {
+      console.log("User not found");
       return res.status(401).json({ message: "Unauthorized" });
     }
 
     (req as any).user = user;
     next();
   } catch {
+    console.error("Invalid token");
     return res.status(401).json({ message: "Unauthorized" });
   }
 }
