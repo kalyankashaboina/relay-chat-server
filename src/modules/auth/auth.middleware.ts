@@ -9,6 +9,8 @@ export async function requireAuth(
   next: NextFunction
 ) {
   try {
+      console.log("Incoming request headers:", req.headers);
+    console.log("Incoming request cookies:", req.cookies);
     const token = req.cookies?.relay_token;
 
     if (!token) {
@@ -30,8 +32,8 @@ export async function requireAuth(
 
     (req as any).user = user;
     next();
-  } catch {
-    console.error("Invalid token");
-    return res.status(401).json({ message: "Unauthorized" });
+  }  catch (err) {
+    console.error("Unexpected error in requireAuth middleware:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 }
