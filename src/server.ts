@@ -16,6 +16,7 @@ initSocket(server);
   // 3️⃣ Start listening
   server.listen(env.PORT, () => {
     console.log(`🚀 Server running on port ${env.PORT}`);
+    console.log(`🌐 Frontend URL: ${env.FRONTEND_URL}`);
   });
 }
 
