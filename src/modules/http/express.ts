@@ -1,0 +1,23 @@
+import express, { Request, Response } from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+
+export function createExpressApp() {
+  const app = express();
+
+  app.use(
+    cors({
+      origin: "http://localhost:8081", 
+      credentials: true,
+    })
+  );
+
+  app.use(express.json());
+  app.use(cookieParser());
+
+  app.get("/health", (_req: Request, res: Response) => {
+    res.json({ status: "ok" });
+  });
+
+  return app;
+}
