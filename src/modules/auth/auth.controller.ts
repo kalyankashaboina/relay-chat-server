@@ -50,7 +50,7 @@ export async function login(
     res.cookie("relay_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -76,7 +76,7 @@ export async function logout(req: Request, res: Response) {
   res.clearCookie("relay_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+     sameSite: "none",
   });
 
   res.status(200).json({
