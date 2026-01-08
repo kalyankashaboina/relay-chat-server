@@ -2,6 +2,14 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { env } from "../../config/env";
 import { User } from "../users/user.model";
+import { Types } from "mongoose";
+
+interface ListUsersParams {
+  currentUserId: string;
+  q?: string;
+  cursor?: string;
+  limit?: number;
+}
 
 export async function register(email: string, password: string) {
   const existingUser = await User.findOne({ email });
@@ -38,3 +46,56 @@ export async function login(email: string, password: string) {
 
   return token;
 }
+
+
+
+
+
+export async function listUsers({
+  currentUserId,
+  q,
+  cursor,
+  limit = 20,
+}: ListUsersParams) {
+  const query: any = {
+    _id: { $ne: new Types.ObjectId(currentUserId) },
+  };
+
+  // 🔍 Search (optional)
+  if (q && q.trim() !== "") {
+    query.$or = [
+      { username: { $regex: q, $options: "i" } },
+      { email: { $regex: q, $options: "i" } },
+    ];
+  }
+
+  // 📄 Cursor pagination
+  if (cursor) {
+    query._id = {
+      ...query._id,
+      $gt: new Types.ObjectId(cursor),
+    };
+  }
+
+  const users = await User.find(query)
+    .sort({ _id: 1 })
+    .limit(limit + 1) // fetch one extra to detect hasMore
+    .select("_id username email avatar isOnline")
+    .lean();
+
+  const hasMore = users.length > limit;
+  const sliced = hasMore ? users.slice(0, limit) : users;
+
+  return {
+    data: sliced.map((u) => ({
+      id: u._id.toString(),
+      username: u.username,
+      email: u.email,
+      avatar: u.avatar,
+      isOnline: u.isOnline,
+    })),
+    nextCursor: hasMore ? sliced[sliced.length - 1]._id.toString() : null,
+    hasMore,
+  };
+}
+

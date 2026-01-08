@@ -1,9 +1,15 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/auth.middleware";
-import { getAllUsers } from "./user.controller";
+import { getUsers } from "./user.controller";
 
 const router = Router();
 
-router.get("/", requireAuth, getAllUsers);
+/**
+ * GET /api/users
+ * - list users
+ * - search (q)
+ * - pagination (cursor, limit)
+ */
+router.get("/", requireAuth, getUsers);
 
 export default router;

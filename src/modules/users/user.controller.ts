@@ -1,26 +1,22 @@
 import { Request, Response } from "express";
-import { User } from "./user.model";
+import { listUsers } from "./user.service";
 
-export async function getAllUsers(req: Request, res: Response) {
+export async function getUsers(req: Request, res: Response) {
   try {
     const currentUserId = (req as any).user._id;
 
-    const users = await User.find({
-      _id: { $ne: currentUserId }, // exclude self
-    })
-      .select("_id username email avatar isOnline")
-      .lean();
+    const { q, cursor, limit } = req.query;
 
-    res.json({
-      data: users.map((u) => ({
-        id: u._id,
-        username: u.username,
-        email: u.email,
-        avatar: u.avatar,
-        isOnline: u.isOnline,
-      })),
+    const result = await listUsers({
+      currentUserId,
+      q: q as string | undefined,
+      cursor: cursor as string | undefined,
+      limit: limit ? Number(limit) : 20,
     });
+
+    res.json(result);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 }
