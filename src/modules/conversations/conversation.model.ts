@@ -1,9 +1,10 @@
-import { Schema, model, Types, Document } from "mongoose";
+import type { Types, Document } from 'mongoose';
+import { Schema, model } from 'mongoose';
 
 export interface IConversation extends Document {
-  type: "direct" | "group";
+  type: 'direct' | 'group';
 
- name?: string;
+  name?: string;
   createdBy?: Types.ObjectId;
 
   participants: Types.ObjectId[];
@@ -20,18 +21,18 @@ const ConversationSchema = new Schema<IConversation>(
   {
     type: {
       type: String,
-      enum: ["direct", "group"],
+      enum: ['direct', 'group'],
       required: true,
     },
 
     participants: [
       {
         type: Schema.Types.ObjectId,
-        ref: "User",
+        ref: 'User',
         required: true,
       },
     ],
- name: {
+    name: {
       type: String,
       trim: true,
     },
@@ -39,7 +40,7 @@ const ConversationSchema = new Schema<IConversation>(
     // 👇 ADD
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
     },
     /**
      * Pointer to latest message
@@ -47,7 +48,7 @@ const ConversationSchema = new Schema<IConversation>(
      */
     lastMessage: {
       type: Schema.Types.ObjectId,
-      ref: "Message",
+      ref: 'Message',
     },
 
     /**
@@ -57,7 +58,7 @@ const ConversationSchema = new Schema<IConversation>(
       {
         userId: {
           type: Schema.Types.ObjectId,
-          ref: "User",
+          ref: 'User',
           required: true,
         },
         count: {
@@ -69,7 +70,7 @@ const ConversationSchema = new Schema<IConversation>(
   },
   {
     timestamps: true, // 👈 you NEED updatedAt
-  }
+  },
 );
 
 /**
@@ -78,7 +79,4 @@ const ConversationSchema = new Schema<IConversation>(
 ConversationSchema.index({ participants: 1 });
 ConversationSchema.index({ updatedAt: -1 });
 
-export const Conversation = model<IConversation>(
-  "Conversation",
-  ConversationSchema
-);
+export const Conversation = model<IConversation>('Conversation', ConversationSchema);

@@ -1,8 +1,9 @@
-import http from "http";
-import { app } from "./app";
-import { env } from "./config/env";
-import { connectMongo } from "./db/mongo";
-import { initSocket } from "./modules/socket";
+import http from 'http';
+
+import { app } from './app';
+import { env } from './config/env';
+import { connectMongo } from './db/mongo';
+import { initSocket } from './modules/socket';
 
 async function bootstrap() {
   await connectMongo();
@@ -11,7 +12,7 @@ async function bootstrap() {
   const server = http.createServer(app);
 
   // 2️⃣ Attach Socket.IO to SAME server
-initSocket(server);
+  initSocket(server);
 
   // 3️⃣ Start listening
   server.listen(env.PORT, () => {

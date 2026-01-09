@@ -1,6 +1,8 @@
-import { Types } from "mongoose";
-import { Message } from "./message.model";
-import { Conversation } from "../conversations/conversation.model";
+import { Types } from 'mongoose';
+
+import { Conversation } from '../conversations/conversation.model';
+
+import { Message } from './message.model';
 
 /* =====================================================
    CREATE MESSAGE (PLAINTEXT)
@@ -10,7 +12,7 @@ interface CreateMessageArgs {
   conversationId: string;
   senderId: string;
   content: string;
-  type?: "text" | "image" | "file" | "system";
+  type?: 'text' | 'image' | 'file' | 'system';
   attachments?: any[];
 }
 
@@ -18,34 +20,27 @@ export async function createMessage({
   conversationId,
   senderId,
   content,
-  type = "text",
+  type = 'text',
   attachments = [],
 }: CreateMessageArgs) {
   if (!content?.trim()) {
-    throw new Error("EMPTY_MESSAGE");
+    throw new Error('EMPTY_MESSAGE');
   }
 
-  if (
-    !Types.ObjectId.isValid(conversationId) ||
-    !Types.ObjectId.isValid(senderId)
-  ) {
-    throw new Error("INVALID_OBJECT_ID");
+  if (!Types.ObjectId.isValid(conversationId) || !Types.ObjectId.isValid(senderId)) {
+    throw new Error('INVALID_OBJECT_ID');
   }
 
-  const conversation = await Conversation.findById(conversationId).select(
-    "participants"
-  );
+  const conversation = await Conversation.findById(conversationId).select('participants');
 
   if (!conversation) {
-    throw new Error("Conversation not found");
+    throw new Error('Conversation not found');
   }
 
-  const isParticipant = conversation.participants.some(
-    (p) => p.toString() === senderId
-  );
+  const isParticipant = conversation.participants.some((p) => p.toString() === senderId);
 
   if (!isParticipant) {
-    throw new Error("FORBIDDEN");
+    throw new Error('FORBIDDEN');
   }
 
   return Message.create({
@@ -78,7 +73,7 @@ export async function getPaginatedMessages({
 
   if (cursor) {
     if (!Types.ObjectId.isValid(cursor)) {
-      throw new Error("INVALID_CURSOR");
+      throw new Error('INVALID_CURSOR');
     }
     query._id = { $lt: new Types.ObjectId(cursor) };
   }

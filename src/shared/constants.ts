@@ -1,3 +1,3 @@
 export const EVENTS = {
-  MESSAGE: "message",
+  MESSAGE: 'message',
 };
