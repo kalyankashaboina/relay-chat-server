@@ -1,5 +1,7 @@
 import { Types } from 'mongoose';
 
+import { logger } from '../../shared/logger';
+
 import { Conversation } from './conversation.model';
 
 /* =====================================================
@@ -40,10 +42,12 @@ export async function createGroupConversation({
   memberIds: string[];
 }) {
   if (!name || !name.trim()) {
+    logger.warn('Group creation failed: missing name', { creatorId });
     throw new Error('GROUP_NAME_REQUIRED');
   }
 
   if (!Array.isArray(memberIds)) {
+    logger.warn('Group creation failed: invalid members', { creatorId });
     throw new Error('INVALID_MEMBERS');
   }
 
@@ -51,6 +55,7 @@ export async function createGroupConversation({
   const uniqueIds = Array.from(new Set([creatorId, ...memberIds]));
 
   if (uniqueIds.length < 3) {
+    logger.warn('Group creation failed: not enough members', { creatorId });
     throw new Error('GROUP_MIN_MEMBERS');
   }
 
@@ -83,6 +88,7 @@ export async function getPaginatedConversations({
   cursor,
   limit,
 }: GetPaginatedConversationsArgs) {
+  logger.info('Fetching paginated conversations', { userId, cursor, limit });
   const userObjectId = new Types.ObjectId(userId);
 
   const query: any = {

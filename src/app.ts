@@ -5,6 +5,7 @@ import userRoutes from './modules/users/user.routes';
 import messageRoutes from './modules/messages/message.routes';
 import { notFound } from './shared/middleware/notFound';
 import { errorHandler } from './shared/middleware/errorHandler';
+import { logger } from './shared/logger';
 
 const app = createExpressApp();
 
@@ -19,6 +20,7 @@ app.get('/api', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  logger.info('Root endpoint accessed');
   res.send('Hello! This is the server. Visit /api for API endpoints.');
 });
 

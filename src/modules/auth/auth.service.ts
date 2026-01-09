@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../config/env';
 import { User } from '../users/user.model';
 import { AppError } from '../../shared/errors/AppError';
+import { logger } from '../../shared/logger';
 
 /* ===============================
    Register
@@ -14,6 +15,7 @@ import { AppError } from '../../shared/errors/AppError';
 export async function register(username: string, email: string, password: string) {
   const normalizedEmail = email.toLowerCase();
 
+  logger.info('Registering user', { username, email: normalizedEmail });
   const existingUser = await User.findOne({
     $or: [{ email: normalizedEmail }, { username }],
   });
@@ -38,15 +40,18 @@ export async function register(username: string, email: string, password: string
 ================================ */
 
 export async function login(email: string, password: string) {
+  logger.info('Logging in user', { email });
   const user = await User.findOne({ email });
 
   if (!user) {
+    logger.warn('Login failed: user not found', { email });
     throw new AppError('Invalid credentials', 401);
   }
 
   const isValid = await bcrypt.compare(password, user.password);
 
   if (!isValid) {
+    logger.warn('Login failed: invalid password', { email });
     throw new AppError('Invalid credentials', 401);
   }
 

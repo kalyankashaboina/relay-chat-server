@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 
 import { AppError } from '../../shared/errors/AppError';
+import { logger } from '../../shared/logger';
 
 import * as authService from './auth.service';
 
@@ -11,6 +12,7 @@ import * as authService from './auth.service';
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
     let { username, email, password } = req.body;
+    logger.info('Register attempt', { username, email });
 
     if (!username || !email || !password) {
       throw new AppError('Username, email and password are required', 400);
@@ -22,6 +24,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
+    logger.error('Register error', { error: err });
     next(err);
   }
 }
@@ -33,7 +36,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     let { email, password } = req.body;
-
+    logger.info('Login attempt', { email });
     if (!email || !password) {
       throw new AppError('Email and password are required', 400);
     }
@@ -63,6 +66,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
 export async function logout(req: Request, res: Response) {
   const isProd = process.env.NODE_ENV === 'production';
+  logger.info('Logout attempt', { userId: (req as any).user?._id });
 
   res.clearCookie('relay_token', {
     httpOnly: true,
@@ -87,9 +91,11 @@ export async function me(req: Request, res: Response) {
 
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
+    logger.info('Forgot password attempt', { email: req.body.email });
     const { email } = req.body;
 
     if (!email) {
+      logger.warn('Forgot password failed: email missing');
       throw new AppError('Email is required', 400);
     }
 
@@ -100,6 +106,7 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
       message: 'If the email exists, a reset link has been sent',
     });
   } catch (err) {
+    logger.error('Forgot password error', { error: err });
     next(err);
   }
 }
@@ -111,6 +118,7 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
 export async function resetPassword(req: Request, res: Response, next: NextFunction) {
   try {
     const { token, password } = req.body;
+    logger.info('Reset password attempt', { tokenProvided: !!token });
 
     if (!token || !password) {
       throw new AppError('Token and password are required', 400);
