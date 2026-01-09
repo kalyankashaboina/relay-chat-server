@@ -15,9 +15,8 @@ COPY src ./src
 
 RUN npm run build
 
-# ================================
 # Runtime stage (PRODUCTION)
-# ================================
+
 FROM node:20-alpine
 
 WORKDIR /app
