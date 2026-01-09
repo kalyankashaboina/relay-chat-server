@@ -1,12 +1,11 @@
-import { Request, Response } from "express";
-import { Types } from "mongoose";
-import { getPaginatedMessages } from "./message.service";
-import { Conversation } from "../conversations/conversation.model";
+import type { Request, Response } from 'express';
+import { Types } from 'mongoose';
 
-export async function getConversationMessages(
-  req: Request,
-  res: Response
-) {
+import { Conversation } from '../conversations/conversation.model';
+
+import { getPaginatedMessages } from './message.service';
+
+export async function getConversationMessages(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { conversationId } = req.params;
@@ -15,26 +14,26 @@ export async function getConversationMessages(
     if (!userId || !conversationId) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request",
+        message: 'Invalid request',
       });
     }
 
     if (!Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid conversationId",
+        message: 'Invalid conversationId',
       });
     }
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: userId,
-    }).select("_id");
+    }).select('_id');
 
     if (!conversation) {
       return res.status(403).json({
         success: false,
-        message: "Forbidden",
+        message: 'Forbidden',
       });
     }
 
@@ -53,11 +52,11 @@ export async function getConversationMessages(
       hasMore: result.hasMore,
     });
   } catch (error: any) {
-    console.error("Fetch messages error:", error);
+    console.error('Fetch messages error:', error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch messages",
+      message: 'Failed to fetch messages',
     });
   }
 }

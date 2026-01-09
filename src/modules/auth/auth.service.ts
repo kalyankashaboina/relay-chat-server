@@ -1,19 +1,17 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import { env } from "../../config/env";
-import { User } from "../users/user.model";
-import { AppError } from "../../shared/errors/AppError";
+import crypto from 'crypto';
+
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+import { env } from '../../config/env';
+import { User } from '../users/user.model';
+import { AppError } from '../../shared/errors/AppError';
 
 /* ===============================
    Register
 ================================ */
 
-export async function register(
-  username: string,
-  email: string,
-  password: string
-) {
+export async function register(username: string, email: string, password: string) {
   const normalizedEmail = email.toLowerCase();
 
   const existingUser = await User.findOne({
@@ -21,7 +19,7 @@ export async function register(
   });
 
   if (existingUser) {
-    throw new AppError("User already exists", 409);
+    throw new AppError('User already exists', 409);
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -43,20 +41,16 @@ export async function login(email: string, password: string) {
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new AppError("Invalid credentials", 401);
+    throw new AppError('Invalid credentials', 401);
   }
 
   const isValid = await bcrypt.compare(password, user.password);
 
   if (!isValid) {
-    throw new AppError("Invalid credentials", 401);
+    throw new AppError('Invalid credentials', 401);
   }
 
-  const token = jwt.sign(
-    { userId: user._id.toString() },
-    env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  const token = jwt.sign({ userId: user._id.toString() }, env.JWT_SECRET, { expiresIn: '7d' });
 
   return token;
 }
@@ -71,12 +65,9 @@ export async function forgotPassword(email: string) {
   // NEVER reveal if user exists
   if (!user) return;
 
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetToken = crypto.randomBytes(32).toString('hex');
 
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
+  const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
   user.passwordResetToken = hashedToken;
   user.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 min
@@ -86,21 +77,15 @@ export async function forgotPassword(email: string) {
   // TODO: send email via mail service
   // mailService.sendResetPassword(email, resetToken);
 
-  console.log("Password reset token (DEV ONLY):", resetToken);
+  console.log('Password reset token (DEV ONLY):', resetToken);
 }
 
 /* ===============================
    Reset Password
 ================================ */
 
-export async function resetPassword(
-  token: string,
-  newPassword: string
-) {
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+export async function resetPassword(token: string, newPassword: string) {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   const user = await User.findOne({
     passwordResetToken: hashedToken,
@@ -108,7 +93,7 @@ export async function resetPassword(
   });
 
   if (!user) {
-    throw new AppError("Token is invalid or expired", 400);
+    throw new AppError('Token is invalid or expired', 400);
   }
 
   user.password = await bcrypt.hash(newPassword, 10);

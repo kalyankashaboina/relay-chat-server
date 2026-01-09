@@ -1,4 +1,5 @@
-import { Schema, model, Types, Document } from "mongoose";
+import type { Types, Document } from 'mongoose';
+import { Schema, model } from 'mongoose';
 
 export interface ISession extends Document {
   userId: Types.ObjectId;
@@ -11,7 +12,7 @@ const SessionSchema = new Schema<ISession>(
   {
     userId: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
       index: true,
     },
@@ -25,7 +26,7 @@ const SessionSchema = new Schema<ISession>(
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
-  }
+  },
 );
 
-export const Session = model<ISession>("Session", SessionSchema);
+export const Session = model<ISession>('Session', SessionSchema);

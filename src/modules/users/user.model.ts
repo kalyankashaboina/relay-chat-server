@@ -1,4 +1,5 @@
-import { Schema, model, Document } from "mongoose";
+import type { Document } from 'mongoose';
+import { Schema, model } from 'mongoose';
 
 export interface IUser extends Document {
   email: string;
@@ -38,7 +39,7 @@ const UserSchema = new Schema<IUser>(
 
     avatar: {
       type: String,
-      default: "",
+      default: '',
     },
 
     isOnline: {
@@ -56,7 +57,7 @@ const UserSchema = new Schema<IUser>(
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
-  }
+  },
 );
 
-export const User = model<IUser>("User", UserSchema);
+export const User = model<IUser>('User', UserSchema);

@@ -1,4 +1,4 @@
-import { Socket } from "socket.io";
+import type { Socket } from 'socket.io';
 
 /* ================= SOCKET DATA ================= */
 
@@ -6,12 +6,7 @@ export interface SocketData {
   userId: string;
 }
 
-export type AuthenticatedSocket = Socket<
-  any,
-  any,
-  any,
-  SocketData
->;
+export type AuthenticatedSocket = Socket<any, any, any, SocketData>;
 
 /* ================= MESSAGE EVENTS ================= */
 
@@ -57,7 +52,7 @@ export interface ReadConversationPayload {
 
 export interface CallInitiatePayload {
   toUserId: string;
-  type: "audio" | "video";
+  type: 'audio' | 'video';
 }
 
 export interface CallAcceptPayload {

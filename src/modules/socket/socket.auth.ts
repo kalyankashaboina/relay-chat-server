@@ -1,24 +1,23 @@
-import cookie from "cookie";
-import jwt from "jsonwebtoken";
-import { env } from "../../config/env";
-import { AuthenticatedSocket } from "./socket.types";
+import cookie from 'cookie';
+import jwt from 'jsonwebtoken';
 
-export function socketAuth(
-  socket: AuthenticatedSocket,
-  next: (err?: Error) => void
-) {
+import { env } from '../../config/env';
+
+import type { AuthenticatedSocket } from './socket.types';
+
+export function socketAuth(socket: AuthenticatedSocket, next: (err?: Error) => void) {
   try {
     const rawCookie = socket.request.headers.cookie;
 
     if (!rawCookie) {
-      return next(new Error("Authentication required"));
+      return next(new Error('Authentication required'));
     }
 
     const cookies = cookie.parse(rawCookie);
     const token = cookies.relay_token;
 
     if (!token) {
-      return next(new Error("Authentication required"));
+      return next(new Error('Authentication required'));
     }
 
     const payload = jwt.verify(token, env.JWT_SECRET) as {
@@ -30,6 +29,6 @@ export function socketAuth(
 
     next();
   } catch {
-    next(new Error("Invalid token"));
+    next(new Error('Invalid token'));
   }
 }

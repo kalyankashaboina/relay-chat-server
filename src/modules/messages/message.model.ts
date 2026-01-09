@@ -1,4 +1,4 @@
-import { Schema, model, Types } from "mongoose";
+import { Schema, model, Types } from 'mongoose';
 
 /**
  * Plaintext Message schema (NON-E2EE)
@@ -9,14 +9,14 @@ const MessageSchema = new Schema(
 
     conversationId: {
       type: Types.ObjectId,
-      ref: "Conversation",
+      ref: 'Conversation',
       required: true,
       index: true,
     },
 
     senderId: {
       type: Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
       index: true,
     },
@@ -31,8 +31,8 @@ const MessageSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["text", "image", "file", "system"],
-      default: "text",
+      enum: ['text', 'image', 'file', 'system'],
+      default: 'text',
     },
 
     attachments: [
@@ -49,14 +49,14 @@ const MessageSchema = new Schema(
     deliveredTo: [
       {
         type: Types.ObjectId,
-        ref: "User",
+        ref: 'User',
       },
     ],
 
     readBy: [
       {
         type: Types.ObjectId,
-        ref: "User",
+        ref: 'User',
       },
     ],
 
@@ -82,11 +82,11 @@ const MessageSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 /* ================= INDEXES ================= */
 
 MessageSchema.index({ conversationId: 1, createdAt: 1 });
 
-export const Message = model("Message", MessageSchema);
+export const Message = model('Message', MessageSchema);

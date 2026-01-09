@@ -1,20 +1,18 @@
-import { Request, Response } from "express";
+import type { Request, Response } from 'express';
+
 import {
   getPaginatedConversations,
   createOrGetDirectConversation,
   searchConversations,
   createGroupConversation,
-} from "./conversation.service";
+} from './conversation.service';
 
 /* =====================================================
    GET SIDEBAR CONVERSATIONS (PAGINATED)
    GET /api/conversations
 ===================================================== */
 
-export async function getSidebarConversations(
-  req: Request,
-  res: Response
-) {
+export async function getSidebarConversations(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { cursor, limit } = req.query;
@@ -22,7 +20,7 @@ export async function getSidebarConversations(
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized",
+        message: 'Unauthorized',
       });
     }
 
@@ -41,10 +39,10 @@ export async function getSidebarConversations(
       hasMore: result.hasMore,
     });
   } catch (error) {
-    console.error("Error fetching conversations:", error);
+    console.error('Error fetching conversations:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch conversations",
+      message: 'Failed to fetch conversations',
     });
   }
 }
@@ -54,10 +52,7 @@ export async function getSidebarConversations(
    POST /api/conversations
 ===================================================== */
 
-export async function createConversation(
-  req: Request,
-  res: Response
-) {
+export async function createConversation(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { userId: targetUserId } = req.body;
@@ -65,24 +60,21 @@ export async function createConversation(
     if (!userId || !targetUserId) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request",
+        message: 'Invalid request',
       });
     }
 
-    const conversation = await createOrGetDirectConversation(
-      userId,
-      targetUserId
-    );
+    const conversation = await createOrGetDirectConversation(userId, targetUserId);
 
     return res.status(201).json({
       success: true,
       data: conversation,
     });
   } catch (error) {
-    console.error("Error creating conversation:", error);
+    console.error('Error creating conversation:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to create conversation",
+      message: 'Failed to create conversation',
     });
   }
 }
@@ -92,18 +84,15 @@ export async function createConversation(
    GET /api/conversations/search
 ===================================================== */
 
-export async function searchSidebarConversations(
-  req: Request,
-  res: Response
-) {
+export async function searchSidebarConversations(req: Request, res: Response) {
   try {
     const userId = (req as any).user?.id;
     const { q, cursor, limit } = req.query;
 
-    if (!userId || !q || typeof q !== "string") {
+    if (!userId || !q || typeof q !== 'string') {
       return res.status(400).json({
         success: false,
-        message: "Invalid search query",
+        message: 'Invalid search query',
       });
     }
 
@@ -123,15 +112,13 @@ export async function searchSidebarConversations(
       hasMore: result.hasMore,
     });
   } catch (error) {
-    console.error("Search conversations error:", error);
+    console.error('Search conversations error:', error);
     return res.status(500).json({
       success: false,
-      message: "Search failed",
+      message: 'Search failed',
     });
   }
 }
-
-
 
 export async function createGroup(req: Request, res: Response) {
   try {
@@ -141,7 +128,7 @@ export async function createGroup(req: Request, res: Response) {
     if (!creatorId || !name || !Array.isArray(memberIds)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid group payload",
+        message: 'Invalid group payload',
       });
     }
 
@@ -151,18 +138,15 @@ export async function createGroup(req: Request, res: Response) {
       memberIds,
     });
 
-   
-
     return res.status(201).json({
       success: true,
       data: conversation,
     });
   } catch (err: any) {
-    console.error("Error creating group conversation:", err);
+    console.error('Error creating group conversation:', err);
     return res.status(400).json({
       success: false,
       message: err.message,
     });
   }
 }
-

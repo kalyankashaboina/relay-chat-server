@@ -1,19 +1,17 @@
-import { Conversation } from "./conversation.model";
-import { Types } from "mongoose";
+import { Types } from 'mongoose';
+
+import { Conversation } from './conversation.model';
 
 /* =====================================================
    CREATE OR GET DIRECT CONVERSATION
 ===================================================== */
 
-export async function createOrGetDirectConversation(
-  userId: string,
-  targetUserId: string
-) {
+export async function createOrGetDirectConversation(userId: string, targetUserId: string) {
   const userObjectId = new Types.ObjectId(userId);
   const targetObjectId = new Types.ObjectId(targetUserId);
 
   const existing = await Conversation.findOne({
-    type: "direct",
+    type: 'direct',
     participants: {
       $all: [userObjectId, targetObjectId],
       $size: 2,
@@ -23,7 +21,7 @@ export async function createOrGetDirectConversation(
   if (existing) return existing;
 
   return Conversation.create({
-    type: "direct",
+    type: 'direct',
     participants: [userObjectId, targetObjectId],
   });
 }
@@ -42,28 +40,24 @@ export async function createGroupConversation({
   memberIds: string[];
 }) {
   if (!name || !name.trim()) {
-    throw new Error("GROUP_NAME_REQUIRED");
+    throw new Error('GROUP_NAME_REQUIRED');
   }
 
   if (!Array.isArray(memberIds)) {
-    throw new Error("INVALID_MEMBERS");
+    throw new Error('INVALID_MEMBERS');
   }
 
   // creator must always be part of the group
-  const uniqueIds = Array.from(
-    new Set([creatorId, ...memberIds])
-  );
+  const uniqueIds = Array.from(new Set([creatorId, ...memberIds]));
 
   if (uniqueIds.length < 3) {
-    throw new Error("GROUP_MIN_MEMBERS");
+    throw new Error('GROUP_MIN_MEMBERS');
   }
 
-  const participants = uniqueIds.map(
-    (id) => new Types.ObjectId(id)
-  );
+  const participants = uniqueIds.map((id) => new Types.ObjectId(id));
 
   return Conversation.create({
-    type: "group",
+    type: 'group',
     name: name.trim(),
     createdBy: new Types.ObjectId(creatorId),
     participants,
@@ -101,12 +95,12 @@ export async function getPaginatedConversations({
 
   const conversations = await Conversation.find(query)
     .populate({
-      path: "participants",
-      select: "_id username avatar isOnline",
+      path: 'participants',
+      select: '_id username avatar isOnline',
     })
     .populate({
-      path: "lastMessage",
-      select: "_id content senderId createdAt status",
+      path: 'lastMessage',
+      select: '_id content senderId createdAt status',
     })
     .sort({ updatedAt: -1 })
     .limit(limit + 1)
@@ -117,9 +111,7 @@ export async function getPaginatedConversations({
 
   return {
     conversations: mapConversations(conversations, userId),
-    nextCursor: hasMore
-      ? conversations[conversations.length - 1]._id.toString()
-      : null,
+    nextCursor: hasMore ? conversations[conversations.length - 1]._id.toString() : null,
     hasMore,
   };
 }
@@ -146,7 +138,7 @@ export async function searchConversations({
   const mongoQuery: any = {
     participants: userObjectId,
     $or: [
-      { name: { $regex: query, $options: "i" } }, // groups
+      { name: { $regex: query, $options: 'i' } }, // groups
     ],
   };
 
@@ -156,12 +148,12 @@ export async function searchConversations({
 
   const conversations = await Conversation.find(mongoQuery)
     .populate({
-      path: "participants",
-      select: "_id username avatar isOnline",
+      path: 'participants',
+      select: '_id username avatar isOnline',
     })
     .populate({
-      path: "lastMessage",
-      select: "_id content senderId createdAt status",
+      path: 'lastMessage',
+      select: '_id content senderId createdAt status',
     })
     .sort({ updatedAt: -1 })
     .limit(limit + 1)
@@ -172,9 +164,7 @@ export async function searchConversations({
 
   return {
     conversations: mapConversations(conversations, userId),
-    nextCursor: hasMore
-      ? conversations[conversations.length - 1]._id.toString()
-      : null,
+    nextCursor: hasMore ? conversations[conversations.length - 1]._id.toString() : null,
     hasMore,
   };
 }
@@ -186,32 +176,30 @@ export async function searchConversations({
 function mapConversations(conversations: any[], userId: string) {
   return conversations.map((conv) => {
     const otherUser =
-      conv.type === "direct"
-        ? conv.participants.find(
-            (p: any) => p._id.toString() !== userId
-          )
+      conv.type === 'direct'
+        ? conv.participants.find((p: any) => p._id.toString() !== userId)
         : null;
 
     return {
       id: conv._id.toString(),
-      isGroup: conv.type === "group",
-      groupName: conv.type === "group" ? conv.name : undefined,
+      isGroup: conv.type === 'group',
+      groupName: conv.type === 'group' ? conv.name : undefined,
 
       user: otherUser
         ? {
             id: otherUser._id.toString(),
-            username: otherUser.username ?? "Unknown",
-            avatar: otherUser.avatar ?? "",
+            username: otherUser.username ?? 'Unknown',
+            avatar: otherUser.avatar ?? '',
             isOnline: otherUser.isOnline ?? false,
           }
         : undefined,
 
       users:
-        conv.type === "group"
+        conv.type === 'group'
           ? conv.participants.map((p: any) => ({
               id: p._id.toString(),
-              username: p.username ?? "Unknown",
-              avatar: p.avatar ?? "",
+              username: p.username ?? 'Unknown',
+              avatar: p.avatar ?? '',
               isOnline: p.isOnline ?? false,
             }))
           : undefined,

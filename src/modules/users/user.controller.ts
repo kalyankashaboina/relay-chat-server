@@ -1,5 +1,6 @@
-import { Request, Response } from "express";
-import { listUsers } from "./user.service";
+import type { Request, Response } from 'express';
+
+import { listUsers } from './user.service';
 
 export async function getUsers(req: Request, res: Response) {
   try {
@@ -17,6 +18,6 @@ export async function getUsers(req: Request, res: Response) {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to fetch users" });
+    res.status(500).json({ message: 'Failed to fetch users' });
   }
 }

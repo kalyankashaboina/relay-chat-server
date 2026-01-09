@@ -1,5 +1,6 @@
-import { Server } from "socket.io";
-import { env } from "../../config/env";
+import { Server } from 'socket.io';
+
+import { env } from '../../config/env';
 
 export function createSocketServer(httpServer: any) {
   const io = new Server(httpServer, {
@@ -7,7 +8,7 @@ export function createSocketServer(httpServer: any) {
       origin: env.FRONTEND_URL,
       credentials: true,
     },
-    transports: ["websocket"],
+    transports: ['websocket'],
   });
 
   return io;

@@ -1,6 +1,8 @@
-import { Router } from "express";
-import { requireAuth } from "../auth/auth.middleware";
-import { getUsers } from "./user.controller";
+import { Router } from 'express';
+
+import { requireAuth } from '../auth/auth.middleware';
+
+import { getUsers } from './user.controller';
 
 const router = Router();
 
@@ -10,6 +12,6 @@ const router = Router();
  * - search (q)
  * - pagination (cursor, limit)
  */
-router.get("/", requireAuth, getUsers);
+router.get('/', requireAuth, getUsers);
 
 export default router;
