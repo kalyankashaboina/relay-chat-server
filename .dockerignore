@@ -3,5 +3,9 @@ dist
 .git
 .gitignore
 .env
-npm-debug.log
-README.md
+.husky
+coverage
+npm-debug.log*
+Dockerfile.local
+.vscode
+readme.md
