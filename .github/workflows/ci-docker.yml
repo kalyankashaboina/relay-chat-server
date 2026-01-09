@@ -11,7 +11,7 @@ permissions:
 
 env:
   NODE_VERSION: 20.x
-  IMAGE_NAME: kalyankashaboina/relay-chat-backend
+  IMAGE_NAME: relay-chat-backend
 
 jobs:
   # ==================================================
@@ -77,5 +77,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
