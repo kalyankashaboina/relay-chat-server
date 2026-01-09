@@ -5,23 +5,28 @@ export function errorHandler(
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) {
-  // Always log full error internally
+  // const isProd = process.env.NODE_ENV === "production";
+
+  // Structured internal logging
   console.error(
     `[ERROR] ${req.method} ${req.originalUrl}`
   );
-  console.error(err);
+  console.error({
+    message: err.message,
+    stack:  err.stack,
+  });
 
-  // Expected / operational errors
-  if (err instanceof AppError && err.isOperational) {
+  // Operational errors (expected)
+  if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
     });
   }
 
-  // Programming / unknown errors
+  // Unknown / programming errors
   return res.status(500).json({
     success: false,
     message: "Internal server error",

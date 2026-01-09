@@ -1,21 +1,26 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { env } from "../../config/env";
 import { User } from "../users/user.model";
 import { AppError } from "../../shared/errors/AppError";
 
-/**
- * Register a new user
- */
+/* ===============================
+   Register
+================================ */
+
 export async function register(
   username: string,
   email: string,
   password: string
 ) {
-  const existingUser = await User.findOne({ email });
+  const normalizedEmail = email.toLowerCase();
+
+  const existingUser = await User.findOne({
+    $or: [{ email: normalizedEmail }, { username }],
+  });
 
   if (existingUser) {
-    // Conflict
     throw new AppError("User already exists", 409);
   }
 
@@ -23,20 +28,20 @@ export async function register(
 
   const user = await User.create({
     username,
-    email,
+    email: normalizedEmail,
     password: hashedPassword,
   });
 
   return user;
 }
 
-/**
- * Login user and return JWT
- */
+/* ===============================
+   Login
+================================ */
+
 export async function login(email: string, password: string) {
   const user = await User.findOne({ email });
 
-  // Same message for security reasons
   if (!user) {
     throw new AppError("Invalid credentials", 401);
   }
@@ -54,4 +59,61 @@ export async function login(email: string, password: string) {
   );
 
   return token;
+}
+
+/* ===============================
+   Forgot Password
+================================ */
+
+export async function forgotPassword(email: string) {
+  const user = await User.findOne({ email });
+
+  // NEVER reveal if user exists
+  if (!user) return;
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 15 min
+
+  await user.save();
+
+  // TODO: send email via mail service
+  // mailService.sendResetPassword(email, resetToken);
+
+  console.log("Password reset token (DEV ONLY):", resetToken);
+}
+
+/* ===============================
+   Reset Password
+================================ */
+
+export async function resetPassword(
+  token: string,
+  newPassword: string
+) {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    throw new AppError("Token is invalid or expired", 400);
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+
+  await user.save();
 }

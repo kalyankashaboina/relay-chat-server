@@ -3,10 +3,12 @@ import { Schema, model, Document } from "mongoose";
 export interface IUser extends Document {
   email: string;
   password: string;
+  username: string;
+  avatar?: string;
+  isOnline: boolean;
 
-  username: string;      // unique display name
-  avatar?: string;       // profile image
-  isOnline: boolean;     // presence
+  passwordResetToken?: string;
+  passwordResetExpires?: number;
 
   createdAt: Date;
 }
@@ -42,6 +44,14 @@ const UserSchema = new Schema<IUser>(
     isOnline: {
       type: Boolean,
       default: false,
+    },
+
+    passwordResetToken: {
+      type: String,
+    },
+
+    passwordResetExpires: {
+      type: Number,
     },
   },
   {

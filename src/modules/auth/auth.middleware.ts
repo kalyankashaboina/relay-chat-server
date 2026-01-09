@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { User } from "../users/user.model";
+import { AppError } from "../../shared/errors/AppError";
 
+interface JwtPayload {
+  userId: string;
+}
 
 export async function requireAuth(
   req: Request,
@@ -9,31 +13,42 @@ export async function requireAuth(
   next: NextFunction
 ) {
   try {
-      console.log("Incoming request headers:", req.headers);
-    console.log("Incoming request cookies:", req.cookies);
     const token = req.cookies?.relay_token;
 
     if (!token) {
-      console.log("No token provided");
-      return res.status(401).json({ message: "Unauthorized" });
+      throw new AppError("Unauthorized", 401);
     }
 
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as { userId: string };
+    let payload: JwtPayload;
+
+    try {
+      payload = jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as JwtPayload;
+    } catch (err) {
+      if (err instanceof TokenExpiredError) {
+        throw new AppError("Session expired", 401);
+      }
+
+      if (err instanceof JsonWebTokenError) {
+        throw new AppError("Invalid token", 401);
+      }
+
+      throw err; // unknown error
+    }
 
     const user = await User.findById(payload.userId).select("-password");
 
     if (!user) {
-      console.log("User not found");
-      return res.status(401).json({ message: "Unauthorized" });
+      throw new AppError("Unauthorized", 401);
     }
 
+    // Attach authenticated user to request
     (req as any).user = user;
+
     next();
-  }  catch (err) {
-    console.error("Unexpected error in requireAuth middleware:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+  } catch (err) {
+    next(err);
   }
 }
