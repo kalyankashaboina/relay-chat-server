@@ -14,6 +14,10 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', messageRoutes);
 
+app.get('/api', (req, res) => {
+  res.send('Welcome to the API. Use /auth, /conversations, /users, or /messages endpoints.');
+});
+
 app.get('/', (req, res) => {
   res.send('Hello! This is the server. Visit /api for API endpoints.');
 });
