@@ -1,11 +1,48 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
+build
+
+# Env files (CRITICAL)
+.env
+.env.*
+!.env.example
+
+# Git
 .git
 .gitignore
-.env
-.husky
-coverage
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+
+# Logs
 npm-debug.log*
-Dockerfile.local
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Coverage
+coverage
+
+# Editor / IDE
 .vscode
-readme.md
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Husky / hooks
+.husky
+
+# Temp / cache
+.cache
+.tmp
+temp
+
+# Docs
+README.md
