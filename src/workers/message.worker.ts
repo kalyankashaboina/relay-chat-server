@@ -50,10 +50,7 @@ if ((global as any)[WORKER_KEY]) {
     } catch (err) {
       logger.error(' Message save failed', { err, jobId: job.id });
 
-      await redisPub.publish(
-        'message:failed',
-        JSON.stringify({ tempId, conversationId })
-      );
+      await redisPub.publish('message:failed', JSON.stringify({ tempId, conversationId }));
 
       throw err;
     }
