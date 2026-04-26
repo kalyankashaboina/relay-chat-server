@@ -5,6 +5,7 @@ import { redisPub } from '../config/redis';
 import { logger } from '../shared/utils/logger';
 
 const WORKER_KEY = '__MESSAGE_WORKER_INITIALIZED__';
+
 if ((global as any)[WORKER_KEY]) {
   logger.warn(' Worker already initialized — skipping duplicate registration');
 } else {
@@ -12,7 +13,12 @@ if ((global as any)[WORKER_KEY]) {
 
   logger.info(' Initializing worker processors...');
 
-  messageQueue.process(async (job) => {
+  // ================================
+  // MESSAGE PROCESSOR
+  // ================================
+  messageQueue.process(5, async (job) => {
+    logger.info(' Processing message job', { id: job.id });
+
     const { conversationId, senderId, content, tempId } = job.data;
 
     try {
@@ -22,9 +28,8 @@ if ((global as any)[WORKER_KEY]) {
         content,
       });
 
-      logger.info('Message saved', { id: message._id });
+      logger.info(' Message saved', { id: message._id });
 
-      // 🔥 Publish success
       await redisPub.publish(
         'message:confirmed',
         JSON.stringify({
@@ -35,7 +40,6 @@ if ((global as any)[WORKER_KEY]) {
         })
       );
 
-      // Update conversation
       await conversationQueue.add({
         conversationId,
         lastMessage: message._id,
@@ -44,10 +48,12 @@ if ((global as any)[WORKER_KEY]) {
 
       return true;
     } catch (err) {
-      logger.error('Message save failed', err);
+      logger.error(' Message save failed', { err, jobId: job.id });
 
-      // 🔥 Publish failure
-      await redisPub.publish('message:failed', JSON.stringify({ tempId, conversationId }));
+      await redisPub.publish(
+        'message:failed',
+        JSON.stringify({ tempId, conversationId })
+      );
 
       throw err;
     }
@@ -56,8 +62,9 @@ if ((global as any)[WORKER_KEY]) {
   // ================================
   // CONVERSATION PROCESSOR
   // ================================
+  conversationQueue.process(5, async (job) => {
+    logger.info('📦 Processing conversation job', { id: job.id });
 
-  conversationQueue.process(async (job) => {
     const { conversationId, lastMessage, lastMessageAt } = job.data;
 
     await Conversation.findByIdAndUpdate(conversationId, {
@@ -70,8 +77,9 @@ if ((global as any)[WORKER_KEY]) {
   // ================================
   // READ RECEIPT PROCESSOR
   // ================================
+  readReceiptQueue.process(5, async (job) => {
+    logger.info(' Processing read receipt job', { id: job.id });
 
-  readReceiptQueue.process(async (job) => {
     const { conversationId, userId, messageIds } = job.data;
 
     await Message.updateMany(
@@ -86,4 +94,13 @@ if ((global as any)[WORKER_KEY]) {
       }
     );
   });
+
+  // ================================
+  // GLOBAL ERROR LISTENER
+  // ================================
+  messageQueue.on('failed', (job, err) => {
+    logger.error(' Job failed', { id: job?.id, err });
+  });
+
+  logger.info('✅ Worker processors registered successfully');
 }
