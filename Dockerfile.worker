@@ -1,3 +1,27 @@
+# ================================
+# STAGE 1: Build (TypeScript → JS)
+# ================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+ENV HUSKY=0
+
+# Install all deps (including dev for build)
+COPY package*.json ./
+RUN npm ci
+
+# Copy source
+COPY tsconfig.json ./
+COPY src ./src
+
+# Build TypeScript
+RUN npm run build
+
+
+# ================================
+# STAGE 2: Runtime (Production)
+# ================================
 FROM node:20-alpine
 
 WORKDIR /app
@@ -5,14 +29,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HUSKY=0
 
-# Install deps
+# Install only production deps
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Copy build
-COPY dist ./dist
+# Copy compiled output from builder
+COPY --from=builder /app/dist ./dist
 
-# Security
+# Security: run as non-root
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 USER nodejs
 
