@@ -4,9 +4,14 @@ import { Conversation } from '../modules/conversations/conversation.model';
 import { redisPub } from '../config/redis';
 import { logger } from '../shared/utils/logger';
 
-// ================================
-// MESSAGE PROCESSOR
-// ================================
+
+const WORKER_KEY = '__MESSAGE_WORKER_INITIALIZED__';
+if ((global as any)[WORKER_KEY]) {
+  logger.warn(' Worker already initialized — skipping duplicate registration');
+} else {
+  (global as any)[WORKER_KEY] = true;
+
+  logger.info(' Initializing worker processors...');
 
 messageQueue.process(async (job) => {
   const { conversationId, senderId, content, tempId } = job.data;
@@ -82,3 +87,5 @@ readReceiptQueue.process(async (job) => {
     }
   );
 });
+
+}
