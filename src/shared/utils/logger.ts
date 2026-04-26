@@ -30,7 +30,7 @@ const pinoLogger = pino({
     : undefined,
 
   // Timestamp
-  timestamp: () => `,"time":"${new Date().toISOString()}"`,
+   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
 /**
