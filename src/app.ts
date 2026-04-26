@@ -7,13 +7,40 @@ import uploadRoutes from './modules/upload/upload.routes';
 import { notFound } from './shared/middleware/notFound';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { logger } from './shared/logger';
+import { isRedisHealthy } from './config/redis';
+import mongoose from 'mongoose';
 
 const app = createExpressApp();
 
 // ── Health check ──────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/readiness', async (_req, res) => {
+  const mongo = mongoose.connection.readyState === 1;
+
+  let redis = false;
+  try {
+    redis = await isRedisHealthy();
+  } catch {
+    redis = false;
+  }
+
+  const ok = mongo && redis;
+
+  res.status(ok ? 200 : 500).json({
+    status: ok ? 'ready' : 'not_ready',
+    mongo,
+    redis,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── API routes ────────────────────────────────────────────────────────

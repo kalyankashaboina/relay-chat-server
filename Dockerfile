@@ -7,7 +7,7 @@ WORKDIR /app
 
 ENV HUSKY=0
 
-# Install deps (cache layer)
+# Install deps (cached layer)
 COPY package*.json ./
 RUN npm ci
 
@@ -15,7 +15,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 
-# Build
+# Build TypeScript
 RUN npm run build
 
 
@@ -29,23 +29,26 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HUSKY=0
 
-# Install production deps
+# Install only production deps
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
-# Copy build
+# Copy compiled output
 COPY --from=builder /app/dist ./dist
 
-# Security: non-root user
-RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
+# 🔒 Create non-root user + set permissions
+RUN addgroup -S nodejs && adduser -S nodejs -G nodejs && \
+    chown -R nodejs:nodejs /app
+
 USER nodejs
 
-# Port
+# 🌐 Expose port
 EXPOSE 4000
 
-# Healthcheck
+# clear
+#  Healthcheck (fast + safe)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:4000/health', res => process.exit(res.statusCode===200?0:1)).on('error', () => process.exit(1))"
 
-# Start API
+# 🚀 Start app
 CMD ["node", "dist/server.js"]

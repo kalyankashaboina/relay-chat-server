@@ -2,60 +2,55 @@ import Redis from 'ioredis';
 import { logger } from '../shared/utils/logger';
 import { env } from './env';
 
-// 🔥 Use REDIS_URL (Upstash / production)
-const REDIS_URL = env.REDIS_URL;
-
-// Base Redis options (shared)
 const baseOptions = {
-  maxRetriesPerRequest: null, // important for queues
+  maxRetriesPerRequest: null,
   enableReadyCheck: true,
   lazyConnect: true,
-  retryStrategy: (times: number) => {
-    return Math.min(times * 100, 2000);
-  },
+  retryStrategy: (times: number) => Math.min(times * 100, 2000),
 };
 
-// ================================
-// MAIN CLIENT (cache + presence)
-// ================================
-export const redisClient = new Redis(REDIS_URL, baseOptions);
+function createRedisClient() {
+  return new Redis(env.REDIS_URL, baseOptions);
+}
 
-// ================================
-// PUB/SUB CLIENTS (separate connections)
-// ================================
-export const redisPub = new Redis(REDIS_URL, baseOptions);
-export const redisSub = new Redis(REDIS_URL, baseOptions);
+export const redisClient = createRedisClient();
+export const redisPub = createRedisClient();
+export const redisSub = createRedisClient();
 
-// ================================
-// CONNECT
-// ================================
+function attachEvents(client: Redis, name: string) {
+  client.on('connect', () => logger.info(`${name} connected`));
+  client.on('ready', () => logger.info(`${name} ready`));
+  client.on('error', (err) => logger.error(`${name} error`, err));
+  client.on('close', () => logger.warn(`${name} closed`));
+}
+
+attachEvents(redisClient, 'redisClient');
+attachEvents(redisPub, 'redisPub');
+attachEvents(redisSub, 'redisSub');
+
 export async function connectRedis(): Promise<void> {
   try {
-    await Promise.all([redisClient.connect(), redisPub.connect(), redisSub.connect()]);
-
-    logger.info('✅ Redis connected successfully');
+    await Promise.all([
+      redisClient.connect(),
+      redisPub.connect(),
+      redisSub.connect(),
+    ]);
+    logger.info('Redis fully connected');
   } catch (error) {
-    logger.error('❌ Redis connection failed:', error);
-
-    // 🔴 IMPORTANT: in production, DO NOT continue without Redis
-    if (env.NODE_ENV === 'production') {
-      process.exit(1);
-    }
+    logger.error('Redis connection failed', error);
+    if (env.NODE_ENV === 'production') process.exit(1);
   }
 }
 
-// ================================
-// DISCONNECT
-// ================================
 export async function disconnectRedis(): Promise<void> {
-  await Promise.all([redisClient.quit(), redisPub.quit(), redisSub.quit()]);
-
+  await Promise.all([
+    redisClient.quit(),
+    redisPub.quit(),
+    redisSub.quit(),
+  ]);
   logger.info('Redis disconnected');
 }
 
-// ================================
-// HEALTH CHECK
-// ================================
 export async function isRedisHealthy(): Promise<boolean> {
   try {
     await redisClient.ping();
@@ -65,16 +60,13 @@ export async function isRedisHealthy(): Promise<boolean> {
   }
 }
 
-// ================================
-// CACHE HELPERS
-// ================================
 export const cache = {
   async get<T>(key: string): Promise<T | null> {
     try {
       const value = await redisClient.get(key);
       return value ? JSON.parse(value) : null;
-    } catch (error) {
-      logger.error('Cache get error:', error);
+    } catch (err) {
+      logger.error('Cache get error', err);
       return null;
     }
   },
@@ -82,47 +74,42 @@ export const cache = {
   async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     try {
       const serialized = JSON.stringify(value);
-
       if (ttlSeconds) {
         await redisClient.set(key, serialized, 'EX', ttlSeconds);
       } else {
         await redisClient.set(key, serialized);
       }
-    } catch (error) {
-      logger.error('Cache set error:', error);
+    } catch (err) {
+      logger.error('Cache set error', err);
     }
   },
 
   async del(key: string): Promise<void> {
     try {
       await redisClient.del(key);
-    } catch (error) {
-      logger.error('Cache del error:', error);
+    } catch (err) {
+      logger.error('Cache del error', err);
     }
   },
 
   async exists(key: string): Promise<boolean> {
     try {
       return (await redisClient.exists(key)) === 1;
-    } catch {
+    } catch (err) {
+      logger.error('Cache exists error', err);
       return false;
     }
   },
 };
 
-// ================================
-// PRESENCE (distributed-safe)
-// ================================
 export const presenceCache = {
   async setOnline(userId: string): Promise<void> {
     await redisClient.sadd('online_users', userId);
-
     await redisClient.set(`user:${userId}:last_seen`, Date.now().toString(), 'EX', 300);
   },
 
   async setOffline(userId: string): Promise<void> {
     await redisClient.srem('online_users', userId);
-
     await redisClient.set(`user:${userId}:last_seen`, Date.now().toString(), 'EX', 86400);
   },
 
@@ -140,9 +127,6 @@ export const presenceCache = {
   },
 };
 
-// ================================
-// TYPING (TTL BASED - NO MEMORY)
-// ================================
 export const typingCache = {
   async setTyping(conversationId: string, userId: string): Promise<void> {
     await redisClient.set(`typing:${conversationId}:${userId}`, '1', 'EX', 8);
@@ -153,7 +137,7 @@ export const typingCache = {
   },
 
   async getTypingUsers(conversationId: string): Promise<string[]> {
-    const keys = await redisClient.keys(`typing:${conversationId}:*`);
+    const [_, keys] = await redisClient.scan(0, 'MATCH', `typing:${conversationId}:*`, 'COUNT', 100);
     return keys.map((k) => k.split(':')[2]);
   },
 };
