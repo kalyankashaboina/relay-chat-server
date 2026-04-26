@@ -10,3 +10,6 @@ yarn.lock
 .env.local
 .env.*.local
 *.log
+
+*.yml
+*.yaml
