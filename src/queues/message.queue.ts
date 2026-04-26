@@ -2,66 +2,36 @@ import Bull, { Queue, Job } from 'bull';
 import { logger } from '../shared/utils/logger';
 import { Message } from '../modules/messages/message.model';
 import { Conversation } from '../modules/conversations/conversation.model';
-import { getIO } from '../modules/socket/socket.events'; // BUG FIX #4
-import { SOCKET_EVENTS } from '../shared/constants'; // BUG FIX #4
 import { env } from '../config/env';
+import { redisPub } from '../config/redis';
 
-// Queue configuration
-const REDIS_CONFIG = {
-  host: env.REDIS_HOST || 'localhost',
-  port: env.REDIS_PORT,
-  password: env.REDIS_PASSWORD,
-};
+const REDIS_URL = env.REDIS_URL;
 
-// Message processing queue
-export const messageQueue: Queue = new Bull('message-processing', {
-  redis: REDIS_CONFIG,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-});
+export const messageQueue: Queue = new Bull(
+  'message-processing',
+  REDIS_URL
+);
 
-// Conversation update queue
-export const conversationQueue: Queue = new Bull('conversation-updates', {
-  redis: REDIS_CONFIG,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 1000,
-    },
-    removeOnComplete: true,
-  },
-});
+export const conversationQueue: Queue = new Bull(
+  'conversation-updates',
+  REDIS_URL
+);
 
-// Read receipt queue
-export const readReceiptQueue: Queue = new Bull('read-receipts', {
-  redis: REDIS_CONFIG,
-  defaultJobOptions: {
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 1000,
-    },
-    removeOnComplete: true,
-  },
-});
+export const readReceiptQueue: Queue = new Bull(
+  'read-receipts',
+  REDIS_URL
+);
 
-/**
- * Job Data Interfaces
- */
+// ================================
+// TYPES
+// ================================
+
 interface SaveMessageJobData {
   conversationId: string;
   senderId: string;
   content: string;
   type: 'text' | 'image' | 'file' | 'audio' | 'video';
-  tempId: string; // Client-generated ID for deduplication
+  tempId: string;
   attachments?: any[];
   replyTo?: string;
 }
@@ -78,18 +48,17 @@ interface ReadReceiptJobData {
   messageIds: string[];
 }
 
-/**
- * MESSAGE QUEUE PROCESSORS
- */
+// ================================
+// PROCESSORS (WORKER SAFE)
+// ================================
 
-// Process message saving (ASYNC - don't block socket)
 messageQueue.process(async (job: Job<SaveMessageJobData>) => {
-  const { conversationId, senderId, content, type, tempId, attachments, replyTo } = job.data;
+  const { conversationId, senderId, content, type, tempId, attachments, replyTo } =
+    job.data;
 
   logger.info(`Processing message save: ${tempId}`);
 
   try {
-    // Create message in database
     const message = await (Message.create as any)({
       conversationId,
       senderId,
@@ -102,25 +71,21 @@ messageQueue.process(async (job: Job<SaveMessageJobData>) => {
 
     logger.info('Message saved to DB', { messageId: message._id });
 
-    // BUG FIX #4: Emit message:confirmed with real ID
-    try {
-      const io = getIO();
-      io.to(conversationId).emit(SOCKET_EVENTS.MSG_CONFIRMED, {
+    // ✅ Publish event instead of using socket directly
+    await redisPub.publish(
+      'message:confirmed',
+      JSON.stringify({
         tempId,
         realId: message._id.toString(),
         conversationId,
         createdAt: message.createdAt,
-      });
-      logger.info('message:confirmed emitted', { tempId, realId: message._id });
-    } catch (error) {
-      logger.error('Failed to emit message:confirmed', error);
-      // Don't fail the job - message is already saved
-    }
+      })
+    );
 
-    // Queue conversation update (non-blocking)
+    // Queue conversation update
     await conversationQueue.add({
       conversationId,
-      lastMessage: message._id, // OK - FIX: Send message ID, not content!
+      lastMessage: message._id,
       lastMessageAt: message.createdAt,
     });
 
@@ -131,11 +96,24 @@ messageQueue.process(async (job: Job<SaveMessageJobData>) => {
     };
   } catch (error) {
     logger.error('Failed to save message:', error);
-    throw error; // Will trigger retry
+
+    // ✅ Publish failure
+    await redisPub.publish(
+      'message:failed',
+      JSON.stringify({
+        tempId,
+        conversationId,
+      })
+    );
+
+    throw error;
   }
 });
 
-// Process conversation updates
+// ================================
+// CONVERSATION PROCESSOR
+// ================================
+
 conversationQueue.process(async (job: Job<UpdateConversationJobData>) => {
   const { conversationId, lastMessage, lastMessageAt } = job.data;
 
@@ -146,19 +124,21 @@ conversationQueue.process(async (job: Job<UpdateConversationJobData>) => {
       $inc: { messageCount: 1 },
     });
 
-    logger.info(`OK - Conversation updated: ${conversationId}`);
+    logger.info(`Conversation updated: ${conversationId}`);
   } catch (error) {
     logger.error('Failed to update conversation:', error);
     throw error;
   }
 });
 
-// Process read receipts
+// ================================
+// READ RECEIPT PROCESSOR
+// ================================
+
 readReceiptQueue.process(async (job: Job<ReadReceiptJobData>) => {
   const { conversationId, userId, messageIds } = job.data;
 
   try {
-    // Update all unread messages in one query
     await Message.updateMany(
       {
         _id: { $in: messageIds },
@@ -171,19 +151,19 @@ readReceiptQueue.process(async (job: Job<ReadReceiptJobData>) => {
       }
     );
 
-    logger.info(`OK - Read receipts processed for ${messageIds.length} messages`);
+    logger.info(`Read receipts processed: ${messageIds.length}`);
   } catch (error) {
     logger.error('Failed to process read receipts:', error);
     throw error;
   }
 });
 
-/**
- * QUEUE EVENT HANDLERS
- */
+// ================================
+// EVENTS
+// ================================
 
-messageQueue.on('completed', (job, result) => {
-  logger.info(`Message job completed: ${job.id}`, result);
+messageQueue.on('completed', (job) => {
+  logger.info(`Message job completed: ${job.id}`);
 });
 
 messageQueue.on('failed', (job, err) => {
@@ -194,67 +174,34 @@ messageQueue.on('stalled', (job) => {
   logger.warn(`Message job stalled: ${job.id}`);
 });
 
-conversationQueue.on('failed', (job, err) => {
-  logger.error(`Conversation update failed: ${job?.id}`, err);
-});
+// ================================
+// HELPERS
+// ================================
 
-readReceiptQueue.on('failed', (job, err) => {
-  logger.error(`Read receipt job failed: ${job?.id}`, err);
-});
-
-/**
- * HELPER FUNCTIONS FOR SOCKET HANDLERS
- */
-
-/**
- * Queue a message for async DB save (NON-BLOCKING)
- * Socket.IO handler calls this and returns immediately
- */
 export async function queueMessageSave(data: SaveMessageJobData): Promise<void> {
   await messageQueue.add(data, {
-    priority: 1, // High priority
-    timeout: 10000,
+    priority: 1,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
   });
 }
 
-/**
- * Queue conversation update (NON-BLOCKING)
- */
-export async function queueConversationUpdate(data: UpdateConversationJobData): Promise<void> {
-  await conversationQueue.add(data, {
-    priority: 2, // Lower priority than messages
-  });
+export async function queueConversationUpdate(
+  data: UpdateConversationJobData
+): Promise<void> {
+  await conversationQueue.add(data, { priority: 2 });
 }
 
-/**
- * Queue read receipts (NON-BLOCKING)
- */
-export async function queueReadReceipts(data: ReadReceiptJobData): Promise<void> {
-  await readReceiptQueue.add(data, {
-    priority: 3, // Lowest priority
-  });
+export async function queueReadReceipts(
+  data: ReadReceiptJobData
+): Promise<void> {
+  await readReceiptQueue.add(data, { priority: 3 });
 }
 
-/**
- * Get queue stats for monitoring
- */
-export async function getQueueStats() {
-  const [messageStats, conversationStats, readReceiptStats] = await Promise.all([
-    messageQueue.getJobCounts(),
-    conversationQueue.getJobCounts(),
-    readReceiptQueue.getJobCounts(),
-  ]);
+// ================================
+// SHUTDOWN
+// ================================
 
-  return {
-    messages: messageStats,
-    conversations: conversationStats,
-    readReceipts: readReceiptStats,
-  };
-}
-
-/**
- * Graceful shutdown
- */
 export async function closeQueues(): Promise<void> {
   await messageQueue.close();
   await conversationQueue.close();
@@ -269,6 +216,5 @@ export default {
   queueMessageSave,
   queueConversationUpdate,
   queueReadReceipts,
-  getQueueStats,
   closeQueues,
 };
