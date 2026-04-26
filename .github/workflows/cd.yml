@@ -81,4 +81,5 @@ jobs:
 
       # Trigger Railway (Worker)
       - name: Trigger Railway Deploy
+        if: ${{ secrets.RAILWAY_DEPLOY_HOOK != '' }}
         run: curl -X POST ${{ secrets.RAILWAY_DEPLOY_HOOK }}
