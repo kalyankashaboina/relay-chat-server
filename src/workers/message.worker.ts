@@ -43,10 +43,7 @@ messageQueue.process(async (job) => {
     logger.error('Message save failed', err);
 
     // 🔥 Publish failure
-    await redisPub.publish(
-      'message:failed',
-      JSON.stringify({ tempId, conversationId })
-    );
+    await redisPub.publish('message:failed', JSON.stringify({ tempId, conversationId }));
 
     throw err;
   }
