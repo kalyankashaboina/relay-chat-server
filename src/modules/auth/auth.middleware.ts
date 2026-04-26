@@ -12,7 +12,6 @@ interface JwtPayload {
 
 // Augment Express Request so req.user is available everywhere
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {
