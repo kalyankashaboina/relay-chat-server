@@ -52,38 +52,30 @@ export const env = {
   PORT: Number(process.env.PORT) || 4000,
   NODE_ENV: optionalEnv('NODE_ENV', 'development'),
 
-
   MONGO_URI: requireEnv('MONGO_URI'),
-
 
   REDIS_URL: REDIS_URL || '',
   REDIS_HOST,
   REDIS_PORT,
   REDIS_PASSWORD,
-  REDIS_CONNECTION, 
-
+  REDIS_CONNECTION,
 
   JWT_SECRET: requireEnv('JWT_SECRET'),
   JWT_EXPIRES_IN: optionalEnv('JWT_EXPIRES_IN', '7d'),
   JWT_REFRESH_SECRET: warnEnv('JWT_REFRESH_SECRET'),
   JWT_REFRESH_EXPIRES_IN: optionalEnv('JWT_REFRESH_EXPIRES_IN', '30d'),
 
-
   FRONTEND_URL: optionalEnv('FRONTEND_URL', 'http://localhost:5173'),
   ALLOWED_ORIGINS: optionalEnv('ALLOWED_ORIGINS', 'http://localhost:5173'),
-
 
   MAX_FILE_SIZE: Number(process.env.MAX_FILE_SIZE) || 10485760,
   UPLOAD_DIR: optionalEnv('UPLOAD_DIR', './uploads'),
 
-
   RATE_LIMIT_WINDOW_MS: Number(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
   RATE_LIMIT_MAX_REQUESTS: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
 
-
   LOG_LEVEL: optionalEnv('LOG_LEVEL', 'info'),
   LOG_FILE: optionalEnv('LOG_FILE', './logs/app.log'),
-
 
   SMTP_HOST: warnEnv('SMTP_HOST'),
   SMTP_PORT: Number(process.env.SMTP_PORT) || 587,
@@ -91,14 +83,12 @@ export const env = {
   SMTP_PASS: warnEnv('SMTP_PASS'),
   EMAIL_FROM: optionalEnv('EMAIL_FROM', 'noreply@relaychat.com'),
 
-
   GOOGLE_CLIENT_ID: warnEnv('GOOGLE_CLIENT_ID'),
 
   CLOUDINARY_CLOUD_NAME: warnEnv('CLOUDINARY_CLOUD_NAME'),
   CLOUDINARY_API_KEY: warnEnv('CLOUDINARY_API_KEY'),
   CLOUDINARY_API_SECRET: warnEnv('CLOUDINARY_API_SECRET'),
 
- 
   STUN_SERVER: optionalEnv('STUN_SERVER', 'stun:stun.l.google.com:19302'),
   TURN_SERVER: warnEnv('TURN_SERVER'),
   TURN_USERNAME: warnEnv('TURN_USERNAME'),

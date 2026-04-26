@@ -7,20 +7,11 @@ import { redisPub } from '../config/redis';
 
 const REDIS_URL = env.REDIS_URL;
 
-export const messageQueue: Queue = new Bull(
-  'message-processing',
-  REDIS_URL
-);
+export const messageQueue: Queue = new Bull('message-processing', REDIS_URL);
 
-export const conversationQueue: Queue = new Bull(
-  'conversation-updates',
-  REDIS_URL
-);
+export const conversationQueue: Queue = new Bull('conversation-updates', REDIS_URL);
 
-export const readReceiptQueue: Queue = new Bull(
-  'read-receipts',
-  REDIS_URL
-);
+export const readReceiptQueue: Queue = new Bull('read-receipts', REDIS_URL);
 
 // ================================
 // TYPES
@@ -53,8 +44,7 @@ interface ReadReceiptJobData {
 // ================================
 
 messageQueue.process(async (job: Job<SaveMessageJobData>) => {
-  const { conversationId, senderId, content, type, tempId, attachments, replyTo } =
-    job.data;
+  const { conversationId, senderId, content, type, tempId, attachments, replyTo } = job.data;
 
   logger.info(`Processing message save: ${tempId}`);
 
@@ -186,15 +176,11 @@ export async function queueMessageSave(data: SaveMessageJobData): Promise<void> 
   });
 }
 
-export async function queueConversationUpdate(
-  data: UpdateConversationJobData
-): Promise<void> {
+export async function queueConversationUpdate(data: UpdateConversationJobData): Promise<void> {
   await conversationQueue.add(data, { priority: 2 });
 }
 
-export async function queueReadReceipts(
-  data: ReadReceiptJobData
-): Promise<void> {
+export async function queueReadReceipts(data: ReadReceiptJobData): Promise<void> {
   await readReceiptQueue.add(data, { priority: 3 });
 }
 

@@ -31,11 +31,7 @@ export const redisSub = new Redis(REDIS_URL, baseOptions);
 // ================================
 export async function connectRedis(): Promise<void> {
   try {
-    await Promise.all([
-      redisClient.connect(),
-      redisPub.connect(),
-      redisSub.connect(),
-    ]);
+    await Promise.all([redisClient.connect(), redisPub.connect(), redisSub.connect()]);
 
     logger.info('✅ Redis connected successfully');
   } catch (error) {
@@ -52,11 +48,7 @@ export async function connectRedis(): Promise<void> {
 // DISCONNECT
 // ================================
 export async function disconnectRedis(): Promise<void> {
-  await Promise.all([
-    redisClient.quit(),
-    redisPub.quit(),
-    redisSub.quit(),
-  ]);
+  await Promise.all([redisClient.quit(), redisPub.quit(), redisSub.quit()]);
 
   logger.info('Redis disconnected');
 }
@@ -125,23 +117,13 @@ export const presenceCache = {
   async setOnline(userId: string): Promise<void> {
     await redisClient.sadd('online_users', userId);
 
-    await redisClient.set(
-      `user:${userId}:last_seen`,
-      Date.now().toString(),
-      'EX',
-      300
-    );
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString(), 'EX', 300);
   },
 
   async setOffline(userId: string): Promise<void> {
     await redisClient.srem('online_users', userId);
 
-    await redisClient.set(
-      `user:${userId}:last_seen`,
-      Date.now().toString(),
-      'EX',
-      86400
-    );
+    await redisClient.set(`user:${userId}:last_seen`, Date.now().toString(), 'EX', 86400);
   },
 
   async getOnlineUsers(): Promise<string[]> {
@@ -163,12 +145,7 @@ export const presenceCache = {
 // ================================
 export const typingCache = {
   async setTyping(conversationId: string, userId: string): Promise<void> {
-    await redisClient.set(
-      `typing:${conversationId}:${userId}`,
-      '1',
-      'EX',
-      8
-    );
+    await redisClient.set(`typing:${conversationId}:${userId}`, '1', 'EX', 8);
   },
 
   async removeTyping(conversationId: string, userId: string): Promise<void> {
