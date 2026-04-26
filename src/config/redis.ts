@@ -30,11 +30,7 @@ attachEvents(redisSub, 'redisSub');
 
 export async function connectRedis(): Promise<void> {
   try {
-    await Promise.all([
-      redisClient.connect(),
-      redisPub.connect(),
-      redisSub.connect(),
-    ]);
+    await Promise.all([redisClient.connect(), redisPub.connect(), redisSub.connect()]);
     logger.info('Redis fully connected');
   } catch (error) {
     logger.error('Redis connection failed', error);
@@ -43,11 +39,7 @@ export async function connectRedis(): Promise<void> {
 }
 
 export async function disconnectRedis(): Promise<void> {
-  await Promise.all([
-    redisClient.quit(),
-    redisPub.quit(),
-    redisSub.quit(),
-  ]);
+  await Promise.all([redisClient.quit(), redisPub.quit(), redisSub.quit()]);
   logger.info('Redis disconnected');
 }
 
@@ -137,7 +129,13 @@ export const typingCache = {
   },
 
   async getTypingUsers(conversationId: string): Promise<string[]> {
-    const [_, keys] = await redisClient.scan(0, 'MATCH', `typing:${conversationId}:*`, 'COUNT', 100);
+    const [_, keys] = await redisClient.scan(
+      0,
+      'MATCH',
+      `typing:${conversationId}:*`,
+      'COUNT',
+      100
+    );
     return keys.map((k) => k.split(':')[2]);
   },
 };
