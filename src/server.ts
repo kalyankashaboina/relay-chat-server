@@ -62,7 +62,7 @@ async function bootstrap() {
 
   // Wait for server to actually start
   await new Promise<void>((resolve) => {
-    server.listen(env.PORT, () => {
+    server.listen(env.PORT,'0.0.0.0', () => {
       logger.info(`Server running on ${env.PORT}`);
       logger.info(`Frontend: ${env.ALLOWED_ORIGINS.split(',')[0].trim()}`);
       resolve();
