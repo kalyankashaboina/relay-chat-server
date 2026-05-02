@@ -1,6 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// auth/auth.controller.ts — HTTP layer only. Delegates to service.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import type { Request, Response, NextFunction } from 'express';
 
 import { AppError } from '../../shared/errors/AppError';
@@ -14,8 +12,8 @@ function setAuthCookie(res: Response, token: string): void {
   const isProd = process.env.NODE_ENV === 'production';
   res.cookie(AUTH.COOKIE_NAME, token, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+     secure: true,
+  sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -24,8 +22,8 @@ function clearAuthCookie(res: Response): void {
   const isProd = process.env.NODE_ENV === 'production';
   res.clearCookie(AUTH.COOKIE_NAME, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+      secure: true,
+  sameSite: "none",
   });
 }
 
