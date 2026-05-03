@@ -260,3 +260,7 @@ export async function changePassword(userId: string, newPassword: string) {
   const user = await authRepository.updateById(userId, { password: hashed, provider: 'local' });
   if (!user) throw new AppError('User not found', 404);
 }
+
+export function createSocketToken(userId: string): string {
+  return jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: '1h' });
+}
