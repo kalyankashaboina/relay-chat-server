@@ -25,7 +25,7 @@ interface SaveMessageJobData {
   content: string;
   type: 'text' | 'image' | 'file' | 'audio' | 'video';
   tempId: string;
-  attachments?: any[];
+  attachments?: unknown[];
   replyTo?: string;
 }
 
@@ -57,12 +57,12 @@ export function registerProcessors() {
   // MESSAGE PROCESSOR
   // ================================
   messageQueue.process(5, async (job: Job<SaveMessageJobData>) => {
-    const { conversationId, senderId, content, type, tempId, attachments, replyTo } = job.data;
+    const { conversationId, senderId, content, type, tempId, attachments } = job.data;
 
     logger.info('📬 Processing message job', { jobId: job.id, tempId });
 
     try {
-      const message = await (Message.create as any)({
+      const message = await (Message.create as unknown)({
         conversationId,
         senderId,
         content,
@@ -141,7 +141,12 @@ export function registerProcessors() {
   readReceiptQueue.process(5, async (job: Job<ReadReceiptJobData>) => {
     const { conversationId, userId, messageIds } = job.data;
 
-    logger.info('📖 Processing read receipt job', { jobId: job.id, conversationId, userId, count: messageIds.length });
+    logger.info('📖 Processing read receipt job', {
+      jobId: job.id,
+      conversationId,
+      userId,
+      count: messageIds.length,
+    });
 
     try {
       const result = await Message.updateMany(
@@ -156,7 +161,10 @@ export function registerProcessors() {
         }
       );
 
-      logger.info('✅ Read receipts processed', { conversationId, modifiedCount: result.modifiedCount });
+      logger.info('✅ Read receipts processed', {
+        conversationId,
+        modifiedCount: result.modifiedCount,
+      });
     } catch (error) {
       logger.error('❌ Read receipt processing failed', { error, jobId: job.id, conversationId });
       throw error;

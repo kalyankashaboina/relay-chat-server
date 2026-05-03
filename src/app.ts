@@ -17,7 +17,7 @@ const app = createExpressApp();
 app.use((req, res, next) => {
   const startTime = Date.now();
   const requestId = req.headers['x-request-id'] || `${Date.now()}-${Math.random()}`;
-  
+
   logger.info('[REQUEST] Incoming', {
     requestId,
     method: req.method,
@@ -83,8 +83,8 @@ app.use('/api', messageRoutes);
 
 app.get('/', (_req, res) => {
   logger.info('[ROOT] Root endpoint accessed');
-  res.json({ 
-    message: 'Relay Chat API', 
+  res.json({
+    message: 'Relay Chat API',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
   });
