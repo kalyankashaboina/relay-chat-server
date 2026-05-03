@@ -22,6 +22,7 @@ import {
   resetPassword,
   updateProfile,
   changePassword,
+  socketToken,
 } from './auth.controller';
 import { requireAuth } from './auth.middleware';
 
@@ -48,6 +49,7 @@ router.post('/google', authLimiter, googleLogin);
 router.post('/logout', logout);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotLimiter, forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), authLimiter, resetPassword);
+router.get('/socket-token', requireAuth, socketToken);
 
 // Protected routes with validation
 router.get('/me', requireAuth, me);

@@ -137,3 +137,9 @@ export async function changePassword(req: Request, res: Response, next: NextFunc
     next(err);
   }
 }
+
+export async function socketToken(req: Request, res: Response) {
+  const u = (req as any).user;
+  const token = service.createSocketToken(u._id.toString());
+  return res.status(200).json({ success: true, token });
+}
