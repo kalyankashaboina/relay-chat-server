@@ -16,14 +16,24 @@ let isShuttingDown = false;
 const connections = new Set<any>();
 
 async function bootstrap() {
-  logger.info('Starting Relay Chat Server');
+  logger.info('═════════════════════════════════════════════════════════════');
+  logger.info('🚀 RELAY CHAT SERVER - STARTING');
+  logger.info('═════════════════════════════════════════════════════════════');
+  logger.info('[STARTUP] Environment Configuration', {
+    NODE_ENV: env.NODE_ENV,
+    PORT: env.PORT,
+    LOG_LEVEL: env.LOG_LEVEL,
+  });
 
   // Mongo (required)
   try {
     await connectMongo();
-    logger.info('MongoDB connected');
+    logger.info('[STARTUP] ✅ MongoDB connected', {
+      status: 'CONNECTED',
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
-    logger.error('MongoDB connection failed', err);
+    logger.error('[STARTUP] ❌ MongoDB connection failed', err);
     process.exit(1);
   }
 
@@ -38,16 +48,19 @@ async function bootstrap() {
 
     if (!ok) throw new Error('Redis unhealthy');
 
-    logger.info('Redis connected');
+    logger.info('[STARTUP] ✅ Redis connected', {
+      status: 'CONNECTED',
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
-    logger.error('Redis connection failed', err);
+    logger.error('[STARTUP] Redis connection failed', err);
 
     if (env.NODE_ENV === 'production') {
-      logger.error('Redis required in production. Exiting...');
+      logger.error('[STARTUP] ❌ Redis required in production. Exiting...');
       process.exit(1);
     }
 
-    logger.warn('Continuing without Redis (dev only)');
+    logger.warn('[STARTUP] ⚠️  Continuing without Redis (dev only)');
   }
 
   // HTTP + Socket
@@ -62,14 +75,56 @@ async function bootstrap() {
 
   // Wait for server to actually start
   await new Promise<void>((resolve) => {
-    server.listen(env.PORT,'0.0.0.0', () => {
-      logger.info(`Server running on ${env.PORT}`);
-      logger.info(`Frontend: ${env.ALLOWED_ORIGINS.split(',')[0].trim()}`);
+    server.listen(env.PORT, '0.0.0.0', () => {
+      logger.info('═════════════════════════════════════════════════════════════');
+      logger.info('✅ SERVER RUNNING');
+      logger.info('═════════════════════════════════════════════════════════════');
+
+      const baseUrl = `http://localhost:${env.PORT}`;
+      const wsUrl = `ws://localhost:${env.PORT}`;
+
+      logger.info('[STARTUP] 📡 API Server', {
+        url: baseUrl,
+        description: 'Use this URL for REST API calls',
+      });
+
+      logger.info('[STARTUP] 🔌 WebSocket Configuration', {
+        socketUrl: wsUrl,
+        description: 'IMPORTANT: Use this URL in frontend to connect to WebSocket',
+        note: 'Connect via: io("' + wsUrl + '", { transports: ["websocket"] })',
+      });
+
+      logger.info('[STARTUP] 🌐 Frontend Origin', {
+        url: env.ALLOWED_ORIGINS.split(',')[0].trim(),
+        description: 'Allowed frontend origin for CORS',
+      });
+
+      logger.info('[STARTUP] 🏥 Health Checks', {
+        health: `${baseUrl}/health`,
+        readiness: `${baseUrl}/readiness`,
+        description: 'Use these endpoints to check server status',
+      });
+
+      logger.info('[STARTUP] 📚 API Routes', {
+        auth: `${baseUrl}/api/auth`,
+        conversations: `${baseUrl}/api/conversations`,
+        users: `${baseUrl}/api/users`,
+        messages: `${baseUrl}/api/messages`,
+        upload: `${baseUrl}/api/upload`,
+      });
+
+      logger.info('═════════════════════════════════════════════════════════════');
+      logger.info('[STARTUP] Server startup complete. Ready for connections!');
+      logger.info('═════════════════════════════════════════════════════════════');
+
       resolve();
     });
   });
 
-  if (env.NODE_ENV !== 'production') monitorMemory();
+  if (env.NODE_ENV !== 'production') {
+    logger.info('[STARTUP] 📊 Memory monitoring enabled (dev mode)');
+    monitorMemory();
+  }
 
   setupCleanupJobs();
 
@@ -81,10 +136,12 @@ function setupGracefulShutdown() {
     if (isShuttingDown) return;
     isShuttingDown = true;
 
-    logger.info(`${signal} received, shutting down`);
+    logger.info('═════════════════════════════════════════════════════════════');
+    logger.info(`🛑 SHUTDOWN SIGNAL: ${signal}`);
+    logger.info('═════════════════════════════════════════════════════════════');
 
     const timeout = setTimeout(() => {
-      logger.error('Force shutdown');
+      logger.error('[SHUTDOWN] ⚠️  Force shutdown - timeout exceeded');
       connections.forEach((conn) => conn.destroy());
       process.exit(1);
     }, 10000);
@@ -93,28 +150,30 @@ function setupGracefulShutdown() {
       // Stop new requests
       await new Promise<void>((resolve) => {
         server.close(() => {
-          logger.info('HTTP server closed');
+          logger.info('[SHUTDOWN] ✅ HTTP server closed');
           resolve();
         });
       });
 
       // Close queues first (they use Redis)
       await closeQueues();
-      logger.info('Queues closed');
+      logger.info('[SHUTDOWN] ✅ Message queues closed');
 
       // Then Redis
       await disconnectRedis();
-      logger.info('Redis disconnected');
+      logger.info('[SHUTDOWN] ✅ Redis disconnected');
 
       // Then Mongo
       await mongoose.connection.close();
-      logger.info('Mongo disconnected');
+      logger.info('[SHUTDOWN] ✅ MongoDB disconnected');
 
       clearTimeout(timeout);
-      logger.info('Shutdown complete');
+      logger.info('═════════════════════════════════════════════════════════════');
+      logger.info('✅ SHUTDOWN COMPLETE - Goodbye!');
+      logger.info('═════════════════════════════════════════════════════════════');
       process.exit(0);
     } catch (err) {
-      logger.error('Shutdown error', err);
+      logger.error('[SHUTDOWN] ❌ Shutdown error', err);
       process.exit(1);
     }
   };
@@ -124,12 +183,12 @@ function setupGracefulShutdown() {
   });
 
   process.on('uncaughtException', (err) => {
-    logger.error('Uncaught exception', err);
+    logger.error('[EXCEPTION] Uncaught exception', err);
     shutdown('uncaughtException');
   });
 
   process.on('unhandledRejection', (reason) => {
-    logger.error('Unhandled rejection', reason);
+    logger.error('[REJECTION] Unhandled rejection', reason);
     shutdown('unhandledRejection');
   });
 }
