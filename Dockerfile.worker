@@ -40,5 +40,5 @@ COPY --from=builder /app/dist ./dist
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 USER nodejs
 
-# Start worker
-CMD ["node", "dist/workers/message.worker.js"]
+# Start worker with correct entry point
+CMD ["node", "dist/worker.js"]

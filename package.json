@@ -7,8 +7,10 @@
   "license": "ISC",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
