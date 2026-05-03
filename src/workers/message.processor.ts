@@ -23,7 +23,7 @@ interface SaveMessageJobData {
   conversationId: string;
   senderId: string;
   content: string;
-  type: 'text' | 'image' | 'file' | 'audio' | 'video';
+  type: 'text' | 'image' | 'file' | 'system';
   tempId: string;
   attachments?: unknown[];
   replyTo?: string;
@@ -62,7 +62,7 @@ export function registerProcessors() {
     logger.info('📬 Processing message job', { jobId: job.id, tempId });
 
     try {
-      const message = await (Message.create as unknown)({
+      const message = await Message.create({
         conversationId,
         senderId,
         content,

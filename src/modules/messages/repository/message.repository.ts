@@ -16,7 +16,7 @@ interface CreateMessageData {
   conversationId: Types.ObjectId;
   senderId: Types.ObjectId;
   content: string;
-  type: string;
+  type: 'text' | 'image' | 'file' | 'system';
   attachments: Array<{
     name: string;
     mimeType: string;
