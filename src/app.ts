@@ -6,11 +6,41 @@ import messageRoutes from './modules/messages/message.routes';
 import uploadRoutes from './modules/upload/upload.routes';
 import { notFound } from './shared/middleware/notFound';
 import { errorHandler } from './shared/middleware/errorHandler';
-import { logger } from './shared/logger';
+import { logger } from './shared/utils/logger';
 import { isRedisHealthy } from './config/redis';
 import mongoose from 'mongoose';
 
 const app = createExpressApp();
+
+// ── Request logging middleware ────────────────────────────────────────
+
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const requestId = req.headers['x-request-id'] || `${Date.now()}-${Math.random()}`;
+  
+  logger.info('[REQUEST] Incoming', {
+    requestId,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+    timestamp: new Date().toISOString(),
+  });
+
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    logger.info('[REQUEST] Completed', {
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  next();
+});
 
 // ── Health check ──────────────────────────────────────────────────────
 
@@ -52,8 +82,12 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api', messageRoutes);
 
 app.get('/', (_req, res) => {
-  logger.info('Root accessed');
-  res.json({ message: 'Relay Chat API', version: '1.0.0' });
+  logger.info('[ROOT] Root endpoint accessed');
+  res.json({ 
+    message: 'Relay Chat API', 
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── Error handling (must be last) ─────────────────────────────────────
