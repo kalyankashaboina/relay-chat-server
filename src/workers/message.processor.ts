@@ -72,7 +72,7 @@ export function registerProcessors() {
         readBy: [],
       });
 
-      logger.info('✅ Message saved to DB', { messageId: message._id, tempId });
+      logger.info(' Message saved to DB', { messageId: message._id, tempId });
 
       // Publish confirmed event to Redis
       await redisPub.publish(
@@ -85,12 +85,19 @@ export function registerProcessors() {
         })
       );
 
+      logger.info('📡 Published message:confirmed to Redis', {
+        tempId,
+        realId: message._id.toString(),
+        conversationId,
+      });
+
       // Queue conversation update
       await conversationQueue.add({
         conversationId,
         lastMessage: message._id,
         lastMessageAt: message.createdAt,
       });
+      logger.info(' Queued conversation update', { conversationId });
 
       return {
         messageId: message._id.toString(),
@@ -98,7 +105,7 @@ export function registerProcessors() {
         createdAt: message.createdAt,
       };
     } catch (error) {
-      logger.error('❌ Message save failed', { error, jobId: job.id, tempId });
+      logger.error(' Message save failed', { error, jobId: job.id, tempId });
 
       // Publish failure event
       await redisPub.publish(
@@ -108,6 +115,7 @@ export function registerProcessors() {
           conversationId,
         })
       );
+      logger.info(' Published message:failed to Redis', { tempId, conversationId });
 
       throw error;
     }
