@@ -45,7 +45,9 @@ export function socketAuth(socket: AuthenticatedSocket, next: (err?: Error) => v
       socketId: socket.id,
       hasToken: !!token,
       tokenLength: token?.length ?? 0,
-      tokenPreview: token ? `${token.substring(0, 20)}...${token.substring(token.length - 20)}` : 'NO_TOKEN',
+      tokenPreview: token
+        ? `${token.substring(0, 20)}...${token.substring(token.length - 20)}`
+        : 'NO_TOKEN',
     });
 
     if (!token) {
