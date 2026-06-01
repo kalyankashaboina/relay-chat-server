@@ -1,69 +1,35 @@
-# Changelog - Relay Chat Backend
+# Changelog
 
-## [Upcoming Release]
+## [2.0.0] — 2025-06
 
-### 🔮 Planned Features
+### Removed
 
-**Progressive Web App (PWA) Enhancement**
+- **Redis** — all `ioredis` / `redis` usage removed (config, subscriber, socket adapter)
+- **BullMQ** — message queue removed; messages are written directly to MongoDB in socket events
+- **Worker process** — `Dockerfile.worker`, `src/worker.ts`, `src/workers/` deleted
+- **Bull queue files** — `src/queues/` deleted
+- **Winston** — replaced with Pino
+- **`any` types** — zero `any` types remain across all source files
 
-- Full Progressive Web App (PWA) support with native-like capabilities across iOS and Android, including offline access, installability, and performance optimizations.
+### Added
 
----
+- **Pino logger** — human-readable (FastAPI-style) in dev, JSON in prod
+- **Swagger UI** — full OpenAPI 3.0 spec at `/docs`, exportable at `/docs.json`
+- **Token utility** (`shared/utils/token.ts`) — single place to swap auth strategy
+- **In-memory idempotency** — deduplicates HTTP and socket messages without Redis
+- **In-memory presence** — online users, typing timeouts, active calls (single-instance)
+- **MongoDB indexes** — compound indexes added to Conversation and User models
 
-## [1.1.0] - 2026-04-21
+### Changed
 
-### 🐛 Bug Fixes (4/4 Complete)
+- **Socket auth** — reads `relay_token` cookie via `cookie` package (no Redis lookup)
+- **Message delivery** — direct DB write in socket handler (was async queue → processor)
+- **`docker-compose.dev.yml`** — MongoDB only (Redis service removed)
+- **CI workflows** — worker image build/deploy removed
+- **Constants** — `shared/constants/index.ts` is single source of truth for all magic values
 
-1. **Bug #1 (CRITICAL)** - Fixed message:sent payload
-   - Added `conversationId` field to acknowledgment
-   - Renamed `timestamp` field to `createdAt`
-   - Location: `src/modules/socket/socket.events.ts`
-   - Impact: Messages no longer stuck in "pending" state
+### Fixed
 
-2. **Bug #2 (CRITICAL)** - Conversation room join (Already fixed)
-   - Sockets now join room when conversation created
-   - Location: `src/modules/conversations/conversation.controller.ts`
-
-3. **Bug #3 (HIGH)** - Fixed message:failed payload
-   - Added `conversationId` field to error event
-   - Location: `src/modules/socket/socket.events.ts`
-
-4. **Bug #4 (HIGH)** - Queue processor emits real ID
-   - Implemented `getIO()` function for queue access
-   - Added `MSG_CONFIRMED` event constant
-   - Queue processor emits `message:confirmed` after DB save
-   - Locations: `src/queues/message.queue.ts`, `src/modules/socket/socket.events.ts`
-   - Impact: tempId properly replaced with real MongoDB ID
-
-### ✨ New Features
-
-- **Message Confirmation**: Queue processor now emits real MongoDB IDs
-- **Improved Error Handling**: All socket events include proper error payloads
-
-### 🔧 Improvements
-
-- Socket Events: Added `MSG_CONFIRMED` constant
-- Error Payloads: All errors now include conversationId
-- Queue Processing: Real-time ID updates via Socket.IO
-
-### 🧪 Testing
-
-- ✅ TypeScript build: SUCCESS
-- ✅ Socket events: 100% wired (23 emitted, 15 handled)
-
----
-
-## [1.0.0] - 2026-04-15
-
-### Initial Release
-
-- JWT authentication
-- Real-time messaging via Socket.IO
-- WebRTC signaling
-- MongoDB database
-- Redis + Bull queue
-- File uploads
-- Message reactions
-- Typing indicators
-- Presence tracking
-- Group conversations
+- N+1 query risk in sidebar: uses `.populate()` with field projection
+- Conversation model missing compound indexes (`participants + updatedAt`)
+- User model missing `passwordResetToken` sparse index and `username` text index

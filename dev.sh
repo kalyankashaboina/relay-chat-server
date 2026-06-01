@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Backend Development Startup Script
-# Starts ONLY Redis in Docker
-# MongoDB runs locally (MongoDB Compass) or Atlas
+# MongoDB runs locally (Docker) or via Atlas
 # Backend runs on host with hot-reload
 
 echo "===================================="
@@ -10,26 +9,26 @@ echo "  Relay Chat Backend Development"
 echo "===================================="
 echo ""
 
-# Start Docker Redis
-echo "[1/3] Starting Redis in Docker..."
+# Start Docker MongoDB
+echo "[1/3] Starting MongoDB in Docker..."
 docker-compose -f docker-compose.dev.yml up -d
 
-# Wait for Redis to be ready
-echo "[2/3] Waiting for Redis to be ready..."
+# Wait for MongoDB to be ready
+echo "[2/3] Waiting for MongoDB to be ready..."
 sleep 3
 
-# Check if Redis is running
-if ! docker ps | grep -q "relay-chat-redis-dev"; then
-    echo "ERROR: Redis failed to start!"
+# Check if MongoDB is running
+if ! docker ps | grep -q "relay-chat-mongo-dev"; then
+    echo "ERROR: MongoDB failed to start!"
     echo "Run: docker-compose -f docker-compose.dev.yml logs"
     exit 1
 fi
 
-echo "[SUCCESS] Redis ready on localhost:6379"
+echo "[SUCCESS] MongoDB ready on localhost:27017"
 echo ""
 echo "MongoDB Setup:"
-echo "  - Option 1: Local MongoDB Compass (localhost:27017)"
-echo "  - Option 2: MongoDB Atlas (update MONGO_URI in .env)"
+echo "  - Local: mongodb://localhost:27017/relay-chat"
+echo "  - Atlas: Update MONGO_URI in .env for remote database"
 echo ""
 echo "Current MONGO_URI: $(grep MONGO_URI .env | cut -d'=' -f2)"
 echo ""

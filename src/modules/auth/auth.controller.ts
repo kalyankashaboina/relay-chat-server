@@ -1,145 +1,150 @@
 import type { Request, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
 
+import { env } from '../../config/env';
 import { AppError } from '../../shared/errors/AppError';
 import { AUTH } from '../../shared/constants';
+import { User } from '../users/user.model';
 
-import * as service from './auth.service';
+import * as authService from './auth.service';
 
-// ── Cookie helper ─────────────────────────────────────────────────────────────
+const isProd = env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+  maxAge: AUTH.COOKIE_MAX_AGE_MS,
+  path: '/',
+} as const;
 
 function setAuthCookie(res: Response, token: string): void {
-  const isProd = process.env.NODE_ENV === 'production';
-  res.cookie(AUTH.COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie(AUTH.COOKIE_NAME, token, cookieOptions);
 }
 
 function clearAuthCookie(res: Response): void {
-  const isProd = process.env.NODE_ENV === 'production';
   res.clearCookie(AUTH.COOKIE_NAME, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax',
+    path: '/',
   });
 }
 
-// ── Register ──────────────────────────────────────────────────────────────────
-
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await service.register(req.body);
+    const result = await authService.register(
+      req.body as Parameters<typeof authService.register>[0]
+    );
     setAuthCookie(res, result.token);
-    return res.status(201).json({ success: true, data: result.user });
+    res.status(201).json({ success: true, data: result.user });
   } catch (err) {
     next(err);
   }
 }
-
-// ── Login ─────────────────────────────────────────────────────────────────────
 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await service.login(req.body);
+    const result = await authService.login(req.body as Parameters<typeof authService.login>[0]);
     setAuthCookie(res, result.token);
-    return res.status(200).json({ success: true, data: result.user });
+    res.status(200).json({ success: true, data: result.user });
   } catch (err) {
     next(err);
   }
 }
-
-// ── Google login ──────────────────────────────────────────────────────────────
 
 export async function googleLogin(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await service.googleAuth(req.body);
+    const result = await authService.googleAuth(
+      req.body as Parameters<typeof authService.googleAuth>[0]
+    );
     setAuthCookie(res, result.token);
-    return res.status(200).json({ success: true, data: result.user });
+    res.status(200).json({ success: true, data: result.user });
   } catch (err) {
     next(err);
   }
 }
 
-// ── Logout ────────────────────────────────────────────────────────────────────
-
-export async function logout(req: Request, res: Response) {
+export async function logout(_req: Request, res: Response) {
   clearAuthCookie(res);
-  return res.status(200).json({ success: true, message: 'Logged out' });
+  res.status(200).json({ success: true, message: 'Logged out' });
 }
 
-// ── Me ────────────────────────────────────────────────────────────────────────
-
 export async function me(req: Request, res: Response) {
-  const u = (req as any).user;
-  return res.status(200).json({
+  const u = req.user!;
+  res.status(200).json({
     success: true,
     data: {
-      id: u._id.toString(),
+      id: u._id,
       email: u.email,
       name: u.username,
       avatar: u.avatar ?? '',
-      bio: u.bio ?? '',
+      bio: (u.bio as string | undefined) ?? '',
       isEmailVerified: u.isEmailVerified,
       provider: u.provider,
     },
   });
 }
 
-// ── Forgot password ───────────────────────────────────────────────────────────
-
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
-    await service.forgotPassword(req.body);
-    return res.status(200).json({
-      success: true,
-      message: 'If an account exists, a reset link has been sent',
-    });
+    await authService.forgotPassword(req.body as { email: string });
+    res
+      .status(200)
+      .json({ success: true, message: 'If an account exists, a reset link has been sent' });
   } catch (err) {
     next(err);
   }
 }
-
-// ── Reset password ────────────────────────────────────────────────────────────
 
 export async function resetPassword(req: Request, res: Response, next: NextFunction) {
   try {
-    await service.resetPassword(req.body);
-    return res.status(200).json({ success: true, message: 'Password reset successful' });
+    await authService.resetPassword(req.body as { token: string; password: string });
+    res.status(200).json({ success: true, message: 'Password reset successful' });
   } catch (err) {
     next(err);
   }
 }
-
-// ── Update profile ────────────────────────────────────────────────────────────
 
 export async function updateProfile(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = (req as any).user._id.toString();
-    const updated = await service.updateProfile(userId, req.body);
-    return res.status(200).json({ success: true, data: updated });
+    const updated = await authService.updateProfile(
+      req.user!._id,
+      req.body as Parameters<typeof authService.updateProfile>[1]
+    );
+    res.status(200).json({ success: true, data: updated });
   } catch (err) {
     next(err);
   }
 }
 
-// ── Change password (authenticated) ──────────────────────────────────────────
-
+// changePasswordSchema: { currentPassword, newPassword }
 export async function changePassword(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = (req as any).user._id.toString();
-    const { password } = req.body;
-    if (!password) return next(new AppError('New password is required', 400));
-    await service.changePassword(userId, password);
-    return res.status(200).json({ success: true, message: 'Password changed successfully' });
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+    if (!currentPassword || !newPassword)
+      return next(new AppError('currentPassword and newPassword are required', 400));
+
+    // Verify current password against DB
+    const user = await User.findById(req.user!._id).select('password provider');
+    if (!user) return next(new AppError('User not found', 404));
+    if (user.provider === 'google' && !user.password)
+      return next(new AppError('Google accounts must set a password via reset-password', 400));
+
+    const valid = await bcrypt.compare(currentPassword, user.password ?? '');
+    if (!valid) return next(new AppError('Current password is incorrect', 401));
+
+    await authService.changePassword(req.user!._id, newPassword);
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
   } catch (err) {
     next(err);
   }
 }
 
 export async function socketToken(req: Request, res: Response) {
-  const u = (req as any).user;
-  const token = service.createSocketToken(u._id.toString());
-  return res.status(200).json({ success: true, token });
+  const token = authService.createSocketToken(req.user!._id);
+  res.status(200).json({ success: true, token });
 }

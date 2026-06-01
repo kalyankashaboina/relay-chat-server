@@ -31,10 +31,10 @@ export const API_ROUTES = {
 export const AUTH = {
   COOKIE_NAME: 'relay_token',
   JWT_EXPIRES_IN: '7d',
+  COOKIE_MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000, // 7 days
   BCRYPT_ROUNDS: 12,
   RESET_TOKEN_BYTES: 32,
   RESET_TTL_MS: 15 * 60 * 1000, // 15 minutes
-  LOCAL_STORAGE_KEY: 'relay-user',
 } as const;
 
 // ── Pagination defaults ──────────────────────────────────────────────────────
