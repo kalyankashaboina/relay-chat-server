@@ -4,17 +4,17 @@ Node.js + Express + Socket.IO + MongoDB backend for Relay Chat.
 
 ## Stack
 
-| Layer | Tech |
-|---|---|
-| Runtime | Node.js 20 |
-| Framework | Express 4 |
-| Realtime | Socket.IO 4 |
-| Database | MongoDB via Mongoose |
-| Auth | JWT in HttpOnly cookie |
-| Validation | Zod |
-| Logging | Pino (pretty in dev, JSON in prod) |
-| Upload | Multer + Cloudinary (local data-URL fallback in dev) |
-| Docs | Swagger UI at `/docs` |
+| Layer      | Tech                                                 |
+| ---------- | ---------------------------------------------------- |
+| Runtime    | Node.js 20                                           |
+| Framework  | Express 4                                            |
+| Realtime   | Socket.IO 4                                          |
+| Database   | MongoDB via Mongoose                                 |
+| Auth       | JWT in HttpOnly cookie                               |
+| Validation | Zod                                                  |
+| Logging    | Pino (pretty in dev, JSON in prod)                   |
+| Upload     | Multer + Cloudinary (local data-URL fallback in dev) |
+| Docs       | Swagger UI at `/docs`                                |
 
 ## Features
 
@@ -46,15 +46,15 @@ Health: `http://localhost:4000/health`
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Dev server with ts-node |
-| `npm run build` | Compile TypeScript → dist/ |
-| `npm start` | Run compiled dist/server.js |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
-| `npm run type-check` | tsc --noEmit |
-| `npm run seed` | Seed DB with test data |
+| Command              | Purpose                     |
+| -------------------- | --------------------------- |
+| `npm run dev`        | Dev server with ts-node     |
+| `npm run build`      | Compile TypeScript → dist/  |
+| `npm start`          | Run compiled dist/server.js |
+| `npm run lint`       | ESLint                      |
+| `npm run format`     | Prettier                    |
+| `npm run type-check` | tsc --noEmit                |
+| `npm run seed`       | Seed DB with test data      |
 
 ## Docker (dev — MongoDB only)
 
