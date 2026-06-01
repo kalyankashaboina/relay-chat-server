@@ -1,42 +1,41 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// auth/repository/auth.repository.ts
-// All DB queries for authentication. No business logic here.
-// ─────────────────────────────────────────────────────────────────────────────
-import type { IUser } from '../../../modules/users/user.model';
-import { User } from '../../../modules/users/user.model';
+import { User } from '../../users/user.model';
 
 export const authRepository = {
-  findByEmail: (email: string) => User.findOne({ email: email.toLowerCase() }).select('+password'),
+  findByEmail: (email: string) => User.findOne({ email: email.toLowerCase() }),
 
   findByEmailOrUsername: (email: string, username: string) =>
-    User.findOne({ $or: [{ email: email.toLowerCase() }, { username }] }),
+    User.findOne({
+      $or: [
+        ...(email ? [{ email: email.toLowerCase() }] : []),
+        ...(username ? [{ username: username.toLowerCase() }] : []),
+      ].filter(Boolean),
+    }),
 
-  findByGoogleId: (googleId: string) => User.findOne({ googleId }),
-
-  findById: (id: string) =>
-    User.findById(id).select('-password -passwordResetToken -passwordResetExpires'),
-
+  // Uses sparse index on passwordResetToken + passwordResetExpires
   findByResetToken: (hashedToken: string) =>
     User.findOne({
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     }),
 
-  create: (data: Partial<IUser>) => User.create(data),
+  create: (data: {
+    username: string;
+    email: string;
+    password?: string;
+    provider: 'local' | 'google';
+    googleId?: string;
+    avatar?: string;
+    isEmailVerified: boolean;
+  }) => User.create({ ...data, email: data.email.toLowerCase() }),
 
-  updateById: (id: string, updates: Partial<IUser>) =>
-    User.findByIdAndUpdate(id, updates, { new: true, runValidators: true }).select(
-      '-password -passwordResetToken -passwordResetExpires'
-    ),
+  updateById: (id: string, updates: Record<string, unknown>) =>
+    User.findByIdAndUpdate(id, updates, { new: true }),
 
   linkGoogle: (userId: string, googleId: string, avatar?: string) =>
-    User.findByIdAndUpdate(
-      userId,
-      {
-        googleId,
-        isEmailVerified: true,
-        ...(avatar ? { avatar } : {}),
-      },
-      { new: true }
-    ).select('-password'),
+    User.findByIdAndUpdate(userId, {
+      googleId,
+      provider: 'google',
+      isEmailVerified: true,
+      ...(avatar ? { avatar } : {}),
+    }),
 };

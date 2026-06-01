@@ -1,54 +1,39 @@
 import type { Socket } from 'socket.io';
-
-/* ================= SOCKET DATA ================= */
+import type { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
 export interface SocketData {
   userId: string;
 }
 
-export type AuthenticatedSocket = Socket<any, any, any, SocketData>;
+export type AuthenticatedSocket = Socket<
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  SocketData
+>;
 
-/* ================= MESSAGE EVENTS ================= */
-
-/**
- * Plain text message payload
- */
 export interface SendMessagePayload {
   conversationId: string;
   content: string;
   tempId?: string;
 }
 
-/**
- * Edit message (plain text)
- */
 export interface EditMessagePayload {
   messageId: string;
   content: string;
 }
 
-/**
- * Delete message
- */
 export interface DeleteMessagePayload {
   messageId: string;
 }
 
-/**
- * Typing indicator
- */
 export interface TypingPayload {
   conversationId: string;
 }
 
-/**
- * Mark conversation as read
- */
 export interface ReadConversationPayload {
   conversationId: string;
 }
-
-/* ================= CALL EVENTS ================= */
 
 export interface CallInitiatePayload {
   toUserId: string;
@@ -65,9 +50,4 @@ export interface CallRejectPayload {
 
 export interface CallEndPayload {
   toUserId: string;
-}
-
-export interface CallSignalPayload {
-  toUserId: string;
-  signal: RTCSessionDescriptionInit | RTCIceCandidateInit;
 }

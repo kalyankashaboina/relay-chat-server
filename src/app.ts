@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 import { createExpressApp } from './modules/http/express';
 import authRoutes from './modules/auth/auth.routes';
 import conversationRoutes from './modules/conversations/conversation.routes';
@@ -5,75 +7,40 @@ import userRoutes from './modules/users/user.routes';
 import messageRoutes from './modules/messages/message.routes';
 import uploadRoutes from './modules/upload/upload.routes';
 import { notFound } from './shared/middleware/notFound';
+import { setupSwagger } from './config/swagger';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { logger } from './shared/utils/logger';
-import { isRedisHealthy } from './config/redis';
-import mongoose from 'mongoose';
 
 const app = createExpressApp();
 
-// ── Request logging middleware ────────────────────────────────────────
+// ── Request logging ───────────────────────────────────────────────────────────
 
 app.use((req, res, next) => {
-  const startTime = Date.now();
-  const requestId = req.headers['x-request-id'] || `${Date.now()}-${Math.random()}`;
-
-  logger.info('[REQUEST] Incoming', {
-    requestId,
-    method: req.method,
-    path: req.path,
-    ip: req.ip,
-    userAgent: req.get('user-agent'),
-    timestamp: new Date().toISOString(),
-  });
-
+  const start = Date.now();
   res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    logger.info('[REQUEST] Completed', {
-      requestId,
+    logger.info('[REQUEST]', {
       method: req.method,
       path: req.path,
-      statusCode: res.statusCode,
-      duration: `${duration}ms`,
-      timestamp: new Date().toISOString(),
+      status: res.statusCode,
+      ms: Date.now() - start,
     });
   });
-
   next();
 });
 
-// ── Health check ──────────────────────────────────────────────────────
+// ── Health checks ─────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
-app.get('/readiness', async (_req, res) => {
+app.get('/readiness', (_req, res) => {
   const mongo = mongoose.connection.readyState === 1;
-
-  let redis = false;
-  try {
-    redis = await isRedisHealthy();
-  } catch {
-    redis = false;
-  }
-
-  const ok = mongo && redis;
-
-  res.status(ok ? 200 : 500).json({
-    status: ok ? 'ready' : 'not_ready',
-    mongo,
-    redis,
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-  });
+  const ok = mongo;
+  res.status(ok ? 200 : 500).json({ status: ok ? 'ready' : 'not_ready', mongo });
 });
 
-// ── API routes ────────────────────────────────────────────────────────
+// ── API routes ────────────────────────────────────────────────────────────────
 
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);
@@ -82,15 +49,12 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api', messageRoutes);
 
 app.get('/', (_req, res) => {
-  logger.info('[ROOT] Root endpoint accessed');
-  res.json({
-    message: 'Relay Chat API',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ message: 'Relay Chat API', version: '1.0.0' });
 });
 
-// ── Error handling (must be last) ─────────────────────────────────────
+setupSwagger(app);
+
+// ── Error handling ────────────────────────────────────────────────────────────
 
 app.use(notFound);
 app.use(errorHandler);

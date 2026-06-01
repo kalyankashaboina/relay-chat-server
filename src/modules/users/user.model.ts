@@ -102,7 +102,11 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-// Indexes are already created by field definitions (email, username, googleId)
-// No need for duplicate index definitions
+// Username full-text search
+UserSchema.index({ username: 'text' });
+// Password reset token lookup (sparse — most users don't have one)
+UserSchema.index({ passwordResetToken: 1 }, { sparse: true });
+// Google OAuth lookup
+UserSchema.index({ googleId: 1 }, { sparse: true });
 
 export const User = model<IUser>('User', UserSchema);

@@ -58,10 +58,17 @@ const MessageSchema = new Schema(
   { timestamps: true }
 );
 
-MessageSchema.index({ conversationId: 1, createdAt: 1 });
-// Text index for message search
+// Core: message pagination — conversationId filtered, _id sorted desc
+MessageSchema.index({ conversationId: 1, _id: -1 });
+// Unread count lookup: conversationId + readBy
+MessageSchema.index({ conversationId: 1, readBy: 1 });
+// Pinned messages per conversation
+MessageSchema.index({ conversationId: 1, isPinned: 1 }, { sparse: true });
+// Starred messages lookup per user
+MessageSchema.index({ starredBy: 1 }, { sparse: true });
+// Full-text search on message content
 MessageSchema.index({ content: 'text' });
-// Compound index for filtering searches by conversation
-MessageSchema.index({ conversationId: 1, content: 'text' });
+// Scheduled message dispatch — background job query
+MessageSchema.index({ isScheduled: 1, scheduledAt: 1 }, { sparse: true });
 
 export const Message = model('Message', MessageSchema);

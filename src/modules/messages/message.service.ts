@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// messages/message.service.ts — Business logic only.
-// DB access via messageRepository. Schemas from shared/validators.
-// ─────────────────────────────────────────────────────────────────────────────
 import { Types } from 'mongoose';
 
 import { AppError } from '../../shared/errors/AppError';
@@ -26,9 +22,8 @@ export async function createMessage(raw: CreateMessageInput) {
   const convo = await conversationRepository.memberIds(input.conversationId);
   if (!convo) throw new AppError('Conversation not found', 404);
 
-  const isMember = (convo as any).participants.some(
-    (p: Types.ObjectId) => p.toString() === input.senderId
-  );
+  const participants = (convo as { participants: Types.ObjectId[] }).participants;
+  const isMember = participants.some((p) => p.toString() === input.senderId);
   if (!isMember) throw new AppError('You are not a member of this conversation', 403);
 
   const msg = await messageRepository.create({
@@ -36,7 +31,9 @@ export async function createMessage(raw: CreateMessageInput) {
     senderId: new Types.ObjectId(input.senderId),
     content: input.content,
     type: input.type,
-    attachments: input.attachments as any,
+    attachments: (input.attachments ?? []) as Parameters<
+      typeof messageRepository.create
+    >[0]['attachments'],
     ...(input.replyTo
       ? {
           replyTo: {
@@ -48,10 +45,9 @@ export async function createMessage(raw: CreateMessageInput) {
       : {}),
   });
 
-  // Update sidebar preview
   await conversationRepository.updateLastMessage(
     input.conversationId,
-    (msg as any)._id as Types.ObjectId
+    (msg as unknown as { _id: Types.ObjectId })._id
   );
 
   return msg;
@@ -61,10 +57,8 @@ export async function createMessage(raw: CreateMessageInput) {
 
 export async function editMessage(raw: EditMessageInput, requesterId: string) {
   const { messageId, content } = editMessageSchema.parse(raw);
-
   const msg = await messageRepository.findOwnedById(messageId, requesterId);
   if (!msg) throw new AppError('Message not found or permission denied', 404);
-
   return messageRepository.edit(messageId, content);
 }
 
@@ -73,7 +67,6 @@ export async function editMessage(raw: EditMessageInput, requesterId: string) {
 export async function deleteMessage(messageId: string, requesterId: string) {
   const msg = await messageRepository.findOwnedById(messageId, requesterId);
   if (!msg) throw new AppError('Message not found or permission denied', 404);
-
   return messageRepository.softDelete(messageId);
 }
 
@@ -81,14 +74,20 @@ export async function deleteMessage(messageId: string, requesterId: string) {
 
 export async function addReaction(raw: ReactionInput, userId: string, username: string) {
   const { messageId, emoji } = reactionSchema.parse(raw);
-
   const msg = await messageRepository.findById(messageId);
-  if (!msg || (msg as any).isDeleted) throw new AppError('Message not found', 404);
+  if (!msg) throw new AppError('Message not found', 404);
 
-  // Idempotent — skip if already reacted with same emoji
-  const already = ((msg as any).reactions ?? []).some(
-    (r: any) => r.userId?.toString() === userId && r.emoji === emoji
-  );
+  const reactions =
+    (
+      msg as unknown as {
+        reactions: { userId: { toString(): string }; emoji: string }[];
+        isDeleted: boolean;
+      }
+    ).reactions ?? [];
+  const isDeleted = (msg as unknown as { isDeleted: boolean }).isDeleted;
+  if (isDeleted) throw new AppError('Message not found', 404);
+
+  const already = reactions.some((r) => r.userId?.toString() === userId && r.emoji === emoji);
   if (already) return msg;
 
   return messageRepository.addReaction(messageId, userId, username, emoji);
@@ -105,9 +104,8 @@ export async function removeReaction(raw: ReactionInput, userId: string) {
 
 export async function markConversationRead(conversationId: string, userId: string) {
   const unread = await messageRepository.unreadInConversation(conversationId, userId);
-  const ids = unread.map((m: any) => m._id.toString());
+  const ids = (unread as { _id: Types.ObjectId }[]).map((m) => m._id.toString());
   if (!ids.length) return [];
-
   await messageRepository.markManyRead(ids, userId);
   return ids;
 }
@@ -120,7 +118,6 @@ export async function getPaginatedMessages(raw: {
   limit: number;
 }) {
   const { conversationId, cursor, limit } = messagesPaginationSchema.parse(raw);
-
   const convOid = new Types.ObjectId(conversationId);
   const cursorId = cursor ? new Types.ObjectId(cursor) : null;
   const rows = await messageRepository.paginated(convOid, cursorId, limit);
@@ -131,7 +128,7 @@ export async function getPaginatedMessages(raw: {
 
   return {
     messages: rows,
-    nextCursor: hasMore ? rows[0]._id.toString() : null,
+    nextCursor: hasMore ? (rows[0] as { _id: { toString(): string } })._id.toString() : null,
     hasMore,
   };
 }
@@ -148,45 +145,27 @@ export async function searchMessages(params: {
 }) {
   const { userId, query, conversationId, senderId, limit = 20, skip = 0 } = params;
 
-  if (!query || query.trim().length === 0) {
-    throw new AppError('Search query is required', 400);
-  }
+  if (!query || query.trim().length === 0) throw new AppError('Search query is required', 400);
 
-  // Build search filter
-  const filter: any = {
+  const userConvos = await conversationRepository.findByParticipant(userId);
+  const convoIds = (userConvos as { _id: Types.ObjectId }[]).map((c) => c._id);
+
+  const filter: Record<string, unknown> = {
     $text: { $search: query },
     isDeleted: false,
+    conversationId: { $in: convoIds },
   };
 
-  // Only search in conversations where user is a member
-  // First get user's conversations
-  const userConvos = await conversationRepository.findByParticipant(userId);
-  const convoIds = userConvos.map((c: any) => c._id);
-
-  // Filter by specific conversation if provided
   if (conversationId) {
     const convOid = new Types.ObjectId(conversationId);
-    if (!convoIds.some((id: Types.ObjectId) => id.equals(convOid))) {
-      throw new AppError('You are not a member of this conversation', 403);
-    }
+    const isMember = convoIds.some((id) => id.equals(convOid));
+    if (!isMember) throw new AppError('You are not a member of this conversation', 403);
     filter.conversationId = convOid;
-  } else {
-    // Search across all user's conversations
-    filter.conversationId = { $in: convoIds };
   }
 
-  // Filter by sender if provided
-  if (senderId) {
-    filter.senderId = new Types.ObjectId(senderId);
-  }
+  if (senderId) filter.senderId = new Types.ObjectId(senderId);
 
-  // Execute search with text score sorting
   const results = await messageRepository.searchMessages(filter, limit, skip);
 
-  return {
-    results,
-    query,
-    total: results.length,
-    hasMore: results.length === limit,
-  };
+  return { results, query, total: results.length, hasMore: results.length === limit };
 }
