@@ -1,15 +1,13 @@
+import type http from 'http';
 import { Server } from 'socket.io';
-
 import { env } from '../../config/env';
 
-export function createSocketServer(httpServer: any) {
-  const io = new Server(httpServer, {
+export function createSocketServer(httpServer: http.Server) {
+  return new Server(httpServer, {
     cors: {
-      origin: env.FRONTEND_URL,
+      origin: env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()),
       credentials: true,
     },
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
   });
-
-  return io;
 }

@@ -1,31 +1,80 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// conversations/repository/conversation.repository.ts
-// All DB queries for conversations. No business logic here.
-// ─────────────────────────────────────────────────────────────────────────────
-import type { Types } from 'mongoose';
-
+import { Types } from 'mongoose';
 import { Conversation } from '../conversation.model';
 
-const PARTICIPANT_FIELDS = '_id username avatar isOnline';
-const LAST_MSG_FIELDS = '_id content senderId createdAt isDeleted';
+const PARTICIPANT_PROJECT = { _id: 1, username: 1, avatar: 1, isOnline: 1 };
+const LAST_MSG_PROJECT = { _id: 1, content: 1, senderId: 1, createdAt: 1, isDeleted: 1, type: 1 };
+
+const participantsLookup = {
+  $lookup: {
+    from: 'users',
+    localField: 'participants',
+    foreignField: '_id',
+    as: 'participants',
+    pipeline: [{ $project: PARTICIPANT_PROJECT }],
+  },
+};
+
+const lastMessageLookup = {
+  $lookup: {
+    from: 'messages',
+    localField: 'lastMessage',
+    foreignField: '_id',
+    as: 'lastMessageArr',
+    pipeline: [{ $project: LAST_MSG_PROJECT }],
+  },
+};
+
+// preserveNullAndEmptyArrays keeps conversations that have no lastMessage
+const UNWIND_LAST_MSG = {
+  $unwind: { path: '$lastMessageArr', preserveNullAndEmptyArrays: true },
+};
+
+// Promote the unwound doc into lastMessage, then drop the temp array field
+const ADD_LAST_MSG = { $addFields: { lastMessage: '$lastMessageArr' } };
+const DROP_TEMP_ARR = { $project: { lastMessageArr: 0 } };
+
+function sidebarPipeline(
+  matchStage: Record<string, unknown>,
+  cursor: string | null,
+  limit: number
+) {
+  const match = {
+    ...matchStage,
+    ...(cursor ? { updatedAt: { $lt: new Date(cursor) } } : {}),
+  };
+  return [
+    { $match: match },
+    { $sort: { updatedAt: -1 as -1 } },
+    { $limit: limit + 1 } as { $limit: number },
+    participantsLookup,
+    lastMessageLookup,
+    UNWIND_LAST_MSG,
+    ADD_LAST_MSG,
+    DROP_TEMP_ARR,
+  ];
+}
 
 export const conversationRepository = {
   findDirect: (userA: Types.ObjectId, userB: Types.ObjectId) =>
-    Conversation.findOne({
-      type: 'direct',
-      participants: { $all: [userA, userB], $size: 2 },
-    })
-      .populate('participants', PARTICIPANT_FIELDS)
-      .lean(),
+    Conversation.aggregate([
+      { $match: { type: 'direct', participants: { $all: [userA, userB], $size: 2 } } },
+      { $limit: 1 },
+      participantsLookup,
+      lastMessageLookup,
+      UNWIND_LAST_MSG,
+      ADD_LAST_MSG,
+      DROP_TEMP_ARR,
+    ]).then((r) => r[0] ?? null),
 
   findById: (id: string) =>
-    Conversation.findById(id).populate('participants', PARTICIPANT_FIELDS).lean(),
-
-  findByIdWithMessages: (id: string) =>
-    Conversation.findById(id)
-      .populate('participants', PARTICIPANT_FIELDS)
-      .populate({ path: 'lastMessage', select: LAST_MSG_FIELDS })
-      .lean(),
+    Conversation.aggregate([
+      { $match: { _id: new Types.ObjectId(id) } },
+      participantsLookup,
+      lastMessageLookup,
+      UNWIND_LAST_MSG,
+      ADD_LAST_MSG,
+      DROP_TEMP_ARR,
+    ]).then((r) => r[0] ?? null),
 
   create: (data: {
     type: 'direct' | 'group';
@@ -34,36 +83,26 @@ export const conversationRepository = {
     createdBy?: Types.ObjectId;
   }) => Conversation.create(data),
 
-  paginatedForUser: (userId: Types.ObjectId, cursor: Types.ObjectId | null, limit: number) => {
-    const query: Record<string, unknown> = { participants: userId };
-    if (cursor) query._id = { $lt: cursor };
-    return Conversation.find(query)
-      .populate('participants', PARTICIPANT_FIELDS)
-      .populate({ path: 'lastMessage', select: LAST_MSG_FIELDS })
-      .sort({ updatedAt: -1 })
-      .limit(limit + 1)
-      .lean();
-  },
+  paginatedForUser: (userId: Types.ObjectId, cursor: string | null, limit: number) =>
+    Conversation.aggregate(sidebarPipeline({ participants: userId }, cursor, limit)),
 
   searchForUser: (
     userId: Types.ObjectId,
     matchingUserIds: Types.ObjectId[],
     nameRegex: RegExp,
-    cursor: Types.ObjectId | null,
+    cursor: string | null,
     limit: number
-  ) => {
-    const query: Record<string, unknown> = {
-      participants: userId,
-      $or: [{ name: nameRegex }, { type: 'direct', participants: { $in: matchingUserIds } }],
-    };
-    if (cursor) query._id = { $lt: cursor };
-    return Conversation.find(query)
-      .populate('participants', PARTICIPANT_FIELDS)
-      .populate({ path: 'lastMessage', select: LAST_MSG_FIELDS })
-      .sort({ updatedAt: -1 })
-      .limit(limit + 1)
-      .lean();
-  },
+  ) =>
+    Conversation.aggregate(
+      sidebarPipeline(
+        {
+          participants: userId,
+          $or: [{ name: nameRegex }, { type: 'direct', participants: { $in: matchingUserIds } }],
+        },
+        cursor,
+        limit
+      )
+    ),
 
   updateLastMessage: (conversationId: string, messageId: Types.ObjectId) =>
     Conversation.findByIdAndUpdate(conversationId, {
@@ -77,50 +116,36 @@ export const conversationRepository = {
   findByParticipant: (userId: string) =>
     Conversation.find({ participants: userId }).select('_id').lean(),
 
-  // Group management
   addMember: (conversationId: string, userId: Types.ObjectId) =>
     Conversation.findByIdAndUpdate(
       conversationId,
       { $addToSet: { participants: userId }, updatedAt: new Date() },
       { new: true }
-    ).populate('participants', PARTICIPANT_FIELDS),
+    ),
 
   removeMember: (conversationId: string, userId: Types.ObjectId) =>
     Conversation.findByIdAndUpdate(
       conversationId,
       { $pull: { participants: userId }, updatedAt: new Date() },
       { new: true }
-    ).populate('participants', PARTICIPANT_FIELDS),
+    ),
 
   updateGroupInfo: (conversationId: string, updates: { name?: string; avatar?: string }) =>
     Conversation.findByIdAndUpdate(
       conversationId,
       { ...updates, updatedAt: new Date() },
       { new: true }
-    ).populate('participants', PARTICIPANT_FIELDS),
-
-  // Mute/Archive
-  muteConversation: (conversationId: string, userId: Types.ObjectId) =>
-    Conversation.findByIdAndUpdate(
-      conversationId,
-      { $addToSet: { mutedBy: userId } },
-      { new: true }
     ),
+
+  muteConversation: (conversationId: string, userId: Types.ObjectId) =>
+    Conversation.findByIdAndUpdate(conversationId, { $addToSet: { mutedBy: userId } }),
 
   unmuteConversation: (conversationId: string, userId: Types.ObjectId) =>
-    Conversation.findByIdAndUpdate(conversationId, { $pull: { mutedBy: userId } }, { new: true }),
+    Conversation.findByIdAndUpdate(conversationId, { $pull: { mutedBy: userId } }),
 
   archiveConversation: (conversationId: string, userId: Types.ObjectId) =>
-    Conversation.findByIdAndUpdate(
-      conversationId,
-      { $addToSet: { archivedBy: userId } },
-      { new: true }
-    ),
+    Conversation.findByIdAndUpdate(conversationId, { $addToSet: { archivedBy: userId } }),
 
   unarchiveConversation: (conversationId: string, userId: Types.ObjectId) =>
-    Conversation.findByIdAndUpdate(
-      conversationId,
-      { $pull: { archivedBy: userId } },
-      { new: true }
-    ),
+    Conversation.findByIdAndUpdate(conversationId, { $pull: { archivedBy: userId } }),
 };

@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// messages/repository/message.repository.ts
-// All DB queries for messages. No business logic here.
-// ─────────────────────────────────────────────────────────────────────────────
 import type { Types } from 'mongoose';
-
 import { Message } from '../message.model';
 
 interface ReplyToInput {
@@ -12,20 +7,36 @@ interface ReplyToInput {
   senderName: string;
 }
 
+interface AttachmentInput {
+  name: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  type: 'image' | 'video' | 'audio' | 'document' | 'text';
+}
+
 interface CreateMessageData {
   conversationId: Types.ObjectId;
   senderId: Types.ObjectId;
   content: string;
   type: 'text' | 'image' | 'file' | 'system';
-  attachments: Array<{
-    name: string;
-    mimeType: string;
-    size: number;
-    url: string;
-    type: 'image' | 'video' | 'audio' | 'document' | 'text';
-  }>;
+  attachments: AttachmentInput[];
   replyTo?: ReplyToInput;
 }
+
+type MessageFilter = Record<string, unknown>;
+
+const SENDER_LOOKUP = {
+  $lookup: {
+    from: 'users',
+    localField: 'senderId',
+    foreignField: '_id',
+    as: 'sender',
+    pipeline: [{ $project: { _id: 1, username: 1, avatar: 1 } }],
+  },
+};
+
+const UNWIND_SENDER = { $unwind: { path: '$sender', preserveNullAndEmptyArrays: true } };
 
 export const messageRepository = {
   findById: (id: string) => Message.findById(id),
@@ -35,15 +46,15 @@ export const messageRepository = {
 
   create: (data: CreateMessageData) => Message.create(data),
 
-  paginated: (conversationId: Types.ObjectId, cursor: Types.ObjectId | null, limit: number) => {
-    const query: Record<string, unknown> = { conversationId };
-    if (cursor) query._id = { $lt: cursor };
-    return Message.find(query)
-      .sort({ _id: -1 })
-      .limit(limit + 1)
-      .populate('senderId', '_id username avatar')
-      .lean();
-  },
+  // Cursor-based pagination with sender joined via aggregation (no N+1)
+  paginated: (conversationId: Types.ObjectId, cursor: Types.ObjectId | null, limit: number) =>
+    Message.aggregate([
+      { $match: { conversationId, isDeleted: false, ...(cursor ? { _id: { $lt: cursor } } : {}) } },
+      { $sort: { _id: -1 } },
+      { $limit: limit + 1 },
+      SENDER_LOOKUP,
+      UNWIND_SENDER,
+    ]),
 
   unreadInConversation: (conversationId: string, excludeSenderId: string) =>
     Message.find({
@@ -79,14 +90,12 @@ export const messageRepository = {
       { new: true }
     ),
 
-  // New: star/unstar
   star: (id: string, userId: string) =>
     Message.findByIdAndUpdate(id, { $addToSet: { starredBy: userId } }, { new: true }),
 
   unstar: (id: string, userId: string) =>
     Message.findByIdAndUpdate(id, { $pull: { starredBy: userId } }, { new: true }),
 
-  // New: pin/unpin
   pin: (id: string) =>
     Message.findByIdAndUpdate(id, { isPinned: true, pinnedAt: new Date() }, { new: true }),
 
@@ -94,14 +103,12 @@ export const messageRepository = {
     Message.findByIdAndUpdate(id, { isPinned: false, $unset: { pinnedAt: '' } }, { new: true }),
 
   pinnedInConversation: (conversationId: string) =>
-    Message.find({ conversationId, isPinned: true, isDeleted: false })
-      .populate('senderId', '_id username avatar')
-      .sort({ pinnedAt: -1 })
-      .lean(),
-
-  // New: scheduled
-  createScheduled: (data: CreateMessageData & { scheduledAt: Date }) =>
-    Message.create({ ...data, isScheduled: true }),
+    Message.aggregate([
+      { $match: { conversationId, isPinned: true, isDeleted: false } },
+      { $sort: { pinnedAt: -1 } },
+      SENDER_LOOKUP,
+      UNWIND_SENDER,
+    ]),
 
   findScheduled: (senderId: string) =>
     Message.find({ senderId, isScheduled: true, isDeleted: false }).sort({ scheduledAt: 1 }).lean(),
@@ -109,13 +116,15 @@ export const messageRepository = {
   deleteScheduled: (id: string, senderId: string) =>
     Message.findOneAndDelete({ _id: id, senderId, isScheduled: true }),
 
-  // Search messages with text index
-  searchMessages: (filter: any, limit: number, skip: number) =>
-    Message.find(filter)
-      .select('_id conversationId senderId content createdAt')
-      .populate('senderId', '_id username avatar')
-      .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
-      .limit(limit)
-      .skip(skip)
-      .lean(),
+  // Full-text search with sender join in single aggregation pipeline (no N+1)
+  searchMessages: (filter: MessageFilter, limit: number, skip: number) =>
+    Message.aggregate([
+      { $match: filter },
+      { $sort: { score: { $meta: 'textScore' }, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      SENDER_LOOKUP,
+      UNWIND_SENDER,
+      { $project: { _id: 1, conversationId: 1, content: 1, createdAt: 1, sender: 1 } },
+    ]),
 };
